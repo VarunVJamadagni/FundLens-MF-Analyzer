@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - FundLens</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="fl-navbar">
+        <div class="fl-navbar-inner">
+            <a class="fl-brand" href="/">
+                <span class="fl-brand-mark">FL</span>
+                <span class="fl-brand-text">FundLens</span>
+            </a>
+            <nav class="fl-nav-links">
+                <a href="/">Funds</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="fl-main">
+        @RenderBody()
+    </main>
+
+    <footer class="fl-footer">
+        <div class="fl-footer-inner">
+            <span>FundLens &mdash; mutual fund research, powered by public NAV data.</span>
+        </div>
+    </footer>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
