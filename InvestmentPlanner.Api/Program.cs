@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<AmfiFundDataService>();
 
 // The Web (Razor Pages) app calls this API server-side, but CORS is enabled
 // as well in case the API is ever called directly from a browser.
@@ -40,6 +41,14 @@ builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<MFTrackerService>();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var amfiFundDataService = scope.ServiceProvider
+        .GetRequiredService<AmfiFundDataService>();
+
+    await amfiFundDataService.GenerateFundsJsonAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {
