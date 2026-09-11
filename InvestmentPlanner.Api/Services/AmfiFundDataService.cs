@@ -97,8 +97,6 @@ public class AmfiFundDataService
             {
                 currentFundHouse = trimmedLine;
 
-                // Category belongs to the current AMC section.
-                // Reset it when moving to another fund house.
                 currentCategory = string.Empty;
                 currentSubCategory = string.Empty;
 
@@ -230,17 +228,6 @@ public class AmfiFundDataService
         var openParen = line.IndexOf('(');
         var closeParen = line.LastIndexOf(')');
 
-        // A category header must contain a section name followed
-        // by information inside parentheses.
-        //
-        // Examples:
-        //
-        // Open Ended Schemes(Equity Scheme - Large Cap Fund)
-        // Exchange Traded Funds(Other Scheme - Other)
-        //
-        // This is deliberately broader than checking only for
-        // "Schemes(" because AMFI has multiple scheme section types.
-
         return openParen > 0 &&
                closeParen > openParen;
     }
@@ -270,13 +257,6 @@ public class AmfiFundDataService
         if (string.IsNullOrWhiteSpace(categoryText))
             return;
 
-        // Example:
-        //
-        // Open Ended Schemes(Equity Scheme - Large Cap Fund)
-        //
-        // Category    = Equity Scheme
-        // SubCategory = Large Cap Fund
-
         var separatorIndex = categoryText.IndexOf(" - ");
 
         if (separatorIndex >= 0)
@@ -286,12 +266,6 @@ public class AmfiFundDataService
         }
         else
         {
-            // Example:
-            //
-            // Exchange Traded Funds(Other Scheme)
-            //
-            // Category    = Other Scheme
-            // SubCategory = ""
             category = categoryText;
         }
     }
@@ -372,6 +346,67 @@ public class AmfiFundDataService
     public async Task<List<AmfiFund>> GetFundsByFundHouseAsync(
         string fundHouse)
     {
+        var funds = await LoadFundsAsync();
+
+        var search = NormalizeSearchTerm(fundHouse);
+
+        if (string.IsNullOrWhiteSpace(search))
+            return new List<AmfiFund>();
+
+        return funds
+            .Where(f =>
+                NormalizeSearchTerm(f.FundHouse)
+                    .Contains(search, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    // -------------------------------------------------------------
+    // GENERAL SEARCH
+    // -------------------------------------------------------------
+    //
+    // Searches:
+    //   - Fund House
+    //   - Scheme Name
+    //   - Category
+    //   - Sub-Category
+    //
+    // This allows searches such as:
+    //   ICICI
+    //   HDFC
+    //   Flexi
+    //   Flexi Cap
+    //   Large Cap
+    //   Small Cap
+    //   Equity Scheme
+    //
+    // The complete matching set is returned.
+    // No 25-result limit is applied here.
+    // -------------------------------------------------------------
+
+    public async Task<List<AmfiFund>> SearchFundsAsync(string query)
+    {
+        var funds = await LoadFundsAsync();
+
+        var search = NormalizeSearchTerm(query);
+
+        if (string.IsNullOrWhiteSpace(search))
+            return new List<AmfiFund>();
+
+        return funds
+            .Where(f =>
+                ContainsNormalized(f.FundHouse, search) ||
+                ContainsNormalized(f.SchemeName, search) ||
+                ContainsNormalized(f.Category, search) ||
+                ContainsNormalized(f.SubCategory, search))
+            .ToList();
+    }
+
+    // -------------------------------------------------------------
+    // LOAD LOCAL FUND CATALOGUE
+    // -------------------------------------------------------------
+
+    private async Task<List<AmfiFund>> LoadFundsAsync()
+    {
         if (!File.Exists(_jsonFilePath))
         {
             throw new FileNotFoundException(
@@ -380,34 +415,38 @@ public class AmfiFundDataService
 
         var json = await File.ReadAllTextAsync(_jsonFilePath);
 
-        var funds = JsonSerializer.Deserialize<List<AmfiFund>>(json)
-                    ?? new List<AmfiFund>();
+        return JsonSerializer.Deserialize<List<AmfiFund>>(json)
+               ?? new List<AmfiFund>();
+    }
 
-        var search = fundHouse.Trim();
+    // -------------------------------------------------------------
+    // SEARCH NORMALIZATION
+    // -------------------------------------------------------------
 
-        if (string.IsNullOrWhiteSpace(search))
-            return new List<AmfiFund>();
+    private static bool ContainsNormalized(
+        string? value,
+        string normalizedSearch)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
 
-        // First try an exact fund-house match.
-        var exactMatches = funds
-            .Where(f => f.FundHouse.Equals(
-                search,
-                StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        return NormalizeSearchTerm(value)
+            .Contains(
+                normalizedSearch,
+                StringComparison.OrdinalIgnoreCase);
+    }
 
-        if (exactMatches.Count > 0)
-            return exactMatches;
+    private static string NormalizeSearchTerm(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
 
-        // If there is no exact match, allow a partial fund-house search.
-        //
-        // Example:
-        // "ICICI Prudential" -> "ICICI Prudential Mutual Fund"
-        // "HDFC"             -> "HDFC Mutual Fund"
-
-        return funds
-            .Where(f => f.FundHouse.Contains(
-                search,
-                StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        return string.Join(
+            " ",
+            value
+                .Trim()
+                .Split(
+                    ' ',
+                    StringSplitOptions.RemoveEmptyEntries));
     }
 }

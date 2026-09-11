@@ -3,8 +3,10 @@
 
     var searchInput = document.getElementById("fl-search-input");
 
-    // This file is loaded on every page.
-    // Only run the fund-list logic when the search input exists.
+    /*
+     * This file is loaded on every page.
+     * Only run the fund-list logic when the search input exists.
+     */
     if (!searchInput) {
         return;
     }
@@ -27,19 +29,36 @@
         subcategory: document.getElementById("fl-filter-subcategory")
     };
 
-    // All funds returned by the current search.
+    /*
+     * All funds returned by the current search.
+     */
     var currentFunds = [];
 
-    // Current page for client-side pagination.
+    /*
+     * Current page for client-side pagination.
+     */
     var currentPage = 1;
 
-    // Number of funds displayed per page.
+    /*
+     * Number of funds displayed per page.
+     */
     var pageSize = 15;
 
     var debounceTimer = null;
     var activeRequestToken = 0;
 
+    /*
+     * Session storage key used to restore the user's
+     * search/filter/page state after opening a fund.
+     */
+    var listStateKey = "fundLensListState";
+    var returnToFundsKey = "fundLensReturnToFunds";
+
     function setLoading(isLoading) {
+        if (!resultsLoading) {
+            return;
+        }
+
         resultsLoading.hidden = !isLoading;
 
         if (isLoading) {
@@ -49,7 +68,9 @@
     }
 
     function setStatus(text) {
-        searchStatus.textContent = text || "";
+        if (searchStatus) {
+            searchStatus.textContent = text || "";
+        }
     }
 
     async function fetchJson(url) {
@@ -67,14 +88,11 @@
     }
 
     /*
-     * Search the API.
-     *
-     * IMPORTANT:
-     * There is deliberately NO eligible-funds request here.
-     *
-     * The page remains empty until the user searches.
+     * ---------------------------------------------------------
+     * SEARCH
+     * ---------------------------------------------------------
      */
-    async function runSearch(query) {
+    async function runSearch(query, restoreState) {
         var token = ++activeRequestToken;
 
         currentPage = 1;
@@ -98,6 +116,31 @@
 
             rebuildDynamicFilters(currentFunds);
 
+            /*
+             * Restore filters and page only when returning from
+             * an analytics page.
+             */
+            if (restoreState) {
+                applySavedFilterState(restoreState);
+
+                currentPage = Number(restoreState.page) || 1;
+
+                if (currentPage < 1) {
+                    currentPage = 1;
+                }
+
+                var totalPages = Math.max(
+                    1,
+                    Math.ceil(
+                        getFilteredFunds().length / pageSize
+                    )
+                );
+
+                if (currentPage > totalPages) {
+                    currentPage = totalPages;
+                }
+            }
+
             if (currentFunds.length === 0) {
                 setStatus("No funds matched your search.");
             } else {
@@ -119,6 +162,8 @@
             resultsEmpty.hidden = false;
             resultsCount.textContent = "";
 
+            removePagination();
+
             setStatus("Search failed. Please try again.");
         }
         finally {
@@ -129,8 +174,11 @@
     }
 
     /*
-     * Returns all checked values from a filter group.
+     * ---------------------------------------------------------
+     * FILTERS
+     * ---------------------------------------------------------
      */
+
     function getCheckedValues(container) {
         if (!container) {
             return [];
@@ -148,15 +196,14 @@
         );
     }
 
-    /*
-     * Determines whether a fund matches all currently selected filters.
-     */
     function fundMatchesFilters(fund) {
         var planChecked = getCheckedValues(filterGroups.plan);
         var optionChecked = getCheckedValues(filterGroups.option);
         var amcChecked = getCheckedValues(filterGroups.amc);
         var categoryChecked = getCheckedValues(filterGroups.category);
-        var subCategoryChecked = getCheckedValues(filterGroups.subcategory);
+        var subCategoryChecked = getCheckedValues(
+            filterGroups.subcategory
+        );
 
         if (
             planChecked.length &&
@@ -188,12 +235,18 @@
 
         if (
             subCategoryChecked.length &&
-            subCategoryChecked.indexOf(fund.schemeSubCategory) === -1
+            subCategoryChecked.indexOf(
+                fund.schemeSubCategory
+            ) === -1
         ) {
             return false;
         }
 
         return true;
+    }
+
+    function getFilteredFunds() {
+        return currentFunds.filter(fundMatchesFilters);
     }
 
     function metricClass(value) {
@@ -209,18 +262,21 @@
     }
 
     /*
-     * Render the currently filtered page.
+     * ---------------------------------------------------------
+     * RESULTS
+     * ---------------------------------------------------------
      */
+
     function renderResults() {
-        var filtered = currentFunds.filter(fundMatchesFilters);
+        var filtered = getFilteredFunds();
 
         var totalCount = filtered.length;
+
         var totalPages = Math.max(
             1,
             Math.ceil(totalCount / pageSize)
         );
 
-        // Make sure current page is still valid after filtering.
         if (currentPage > totalPages) {
             currentPage = totalPages;
         }
@@ -236,43 +292,78 @@
 
         resultsEmpty.hidden = true;
 
-        resultsCount.textContent =
-            totalCount +
-            (totalCount === 1 ? " fund" : " funds");
+        var startIndex =
+            (currentPage - 1) * pageSize;
 
-        var startIndex = (currentPage - 1) * pageSize;
         var endIndex = Math.min(
             startIndex + pageSize,
             totalCount
         );
+
+        /*
+         * Show a useful range instead of only:
+         * "235 funds"
+         */
+        resultsCount.textContent =
+            "Showing " +
+            (startIndex + 1) +
+            "–" +
+            endIndex +
+            " of " +
+            totalCount +
+            (totalCount === 1 ? " fund" : " funds");
 
         var pageFunds = filtered.slice(
             startIndex,
             endIndex
         );
 
-        var fragment = document.createDocumentFragment();
+        var fragment =
+            document.createDocumentFragment();
 
         pageFunds.forEach(function (fund) {
-            var node = cardTemplate.content.cloneNode(true);
+            var node =
+                cardTemplate.content.cloneNode(true);
 
-            var anchor = node.querySelector(".fl-fund-card");
+            var anchor =
+                node.querySelector(".fl-fund-card");
 
             anchor.href =
                 "/Analytics?schemeCode=" +
                 encodeURIComponent(fund.schemeCode);
 
-            node.querySelector(".fl-fund-name").textContent =
+            /*
+             * Save the exact list state before opening
+             * the analytics page.
+             */
+            anchor.addEventListener(
+                "click",
+                function () {
+                    saveListState();
+                }
+            );
+
+            node.querySelector(
+                ".fl-fund-name"
+            ).textContent =
                 fund.schemeName || "Unknown Fund";
 
-            node.querySelector(".fl-fund-plan").textContent =
+            node.querySelector(
+                ".fl-fund-plan"
+            ).textContent =
                 fund.plan || "Standard";
 
-            node.querySelector(".fl-fund-nav-value").textContent =
+            node.querySelector(
+                ".fl-fund-nav-value"
+            ).textContent =
                 "₹" +
-                Number(fund.currentNAV || 0).toFixed(4);
+                Number(
+                    fund.currentNAV || 0
+                ).toFixed(4);
 
-            node.querySelector(".fl-fund-amc").textContent =
+            node.querySelector(
+                ".fl-fund-amc"
+            ).textContent =
                 fund.fundHouse || "";
 
             setMetric(
@@ -326,15 +417,23 @@
     }
 
     function setMetric(node, selector, value) {
-        var element = node.querySelector(selector);
+        var element =
+            node.querySelector(selector);
 
-        element.textContent = value || "N/A";
-        element.classList.add(metricClass(value));
+        element.textContent =
+            value || "N/A";
+
+        element.classList.add(
+            metricClass(value)
+        );
     }
 
     /*
-     * Pagination controls.
+     * ---------------------------------------------------------
+     * PAGINATION
+     * ---------------------------------------------------------
      */
+
     function renderPagination(totalPages) {
         removePagination();
 
@@ -342,88 +441,164 @@
             return;
         }
 
-        var pagination = document.createElement("div");
+        var pagination =
+            document.createElement("div");
+
         pagination.id = "fl-pagination";
         pagination.className = "fl-pagination";
 
-        var previousButton = document.createElement("button");
+        /*
+         * Previous button
+         */
+        var previousButton =
+            document.createElement("button");
 
         previousButton.type = "button";
-        previousButton.className = "fl-pagination-button";
-        previousButton.textContent = "Previous";
-        previousButton.disabled = currentPage === 1;
+        previousButton.className =
+            "fl-pagination-button fl-pagination-prev";
 
-        previousButton.addEventListener("click", function () {
-            if (currentPage > 1) {
-                currentPage--;
-                renderResults();
+        previousButton.innerHTML =
+            '<span aria-hidden="true">←</span>' +
+            '<span>Previous</span>';
 
-                scrollToResults();
+        previousButton.disabled =
+            currentPage === 1;
+
+        previousButton.setAttribute(
+            "aria-label",
+            "Go to previous page"
+        );
+
+        previousButton.addEventListener(
+            "click",
+            function () {
+                if (currentPage > 1) {
+                    currentPage--;
+
+                    saveListState();
+                    renderResults();
+                    scrollToResults();
+                }
             }
-        });
+        );
 
-        pagination.appendChild(previousButton);
+        pagination.appendChild(
+            previousButton
+        );
 
         /*
-         * Keep the pagination compact when there are many pages.
+         * Page numbers
          */
-        var pages = getPageNumbers(totalPages);
+        var pages =
+            getPageNumbers(totalPages);
 
         pages.forEach(function (page) {
             if (page === "...") {
-                var ellipsis = document.createElement("span");
+                var ellipsis =
+                    document.createElement("span");
 
-                ellipsis.className = "fl-pagination-ellipsis";
-                ellipsis.textContent = "...";
+                ellipsis.className =
+                    "fl-pagination-ellipsis";
 
-                pagination.appendChild(ellipsis);
+                ellipsis.textContent = "…";
+
+                pagination.appendChild(
+                    ellipsis
+                );
+
                 return;
             }
 
-            var pageButton = document.createElement("button");
+            var pageButton =
+                document.createElement("button");
 
             pageButton.type = "button";
+
             pageButton.className =
                 "fl-pagination-button" +
-                (page === currentPage
-                    ? " active"
-                    : "");
+                (
+                    page === currentPage
+                        ? " active"
+                        : ""
+                );
 
             pageButton.textContent = page;
 
-            pageButton.addEventListener("click", function () {
-                currentPage = page;
+            pageButton.setAttribute(
+                "aria-label",
+                "Go to page " + page
+            );
 
-                renderResults();
+            if (page === currentPage) {
+                pageButton.setAttribute(
+                    "aria-current",
+                    "page"
+                );
+            }
 
-                scrollToResults();
-            });
+            pageButton.addEventListener(
+                "click",
+                function () {
+                    currentPage = page;
 
-            pagination.appendChild(pageButton);
+                    saveListState();
+                    renderResults();
+                    scrollToResults();
+                }
+            );
+
+            pagination.appendChild(
+                pageButton
+            );
         });
 
-        var nextButton = document.createElement("button");
+        /*
+         * Next button
+         */
+        var nextButton =
+            document.createElement("button");
 
         nextButton.type = "button";
-        nextButton.className = "fl-pagination-button";
-        nextButton.textContent = "Next";
-        nextButton.disabled = currentPage === totalPages;
 
-        nextButton.addEventListener("click", function () {
-            if (currentPage < totalPages) {
-                currentPage++;
-                renderResults();
+        nextButton.className =
+            "fl-pagination-button fl-pagination-next";
 
-                scrollToResults();
+        nextButton.innerHTML =
+            '<span>Next</span>' +
+            '<span aria-hidden="true">→</span>';
+
+        nextButton.disabled =
+            currentPage === totalPages;
+
+        nextButton.setAttribute(
+            "aria-label",
+            "Go to next page"
+        );
+
+        nextButton.addEventListener(
+            "click",
+            function () {
+                if (currentPage < totalPages) {
+                    currentPage++;
+
+                    saveListState();
+                    renderResults();
+                    scrollToResults();
+                }
             }
-        });
+        );
 
-        pagination.appendChild(nextButton);
+        pagination.appendChild(
+            nextButton
+        );
 
-        var resultsSection = document.querySelector(".fl-results");
+        var resultsSection =
+            document.querySelector(".fl-results");
 
         if (resultsSection) {
-            resultsSection.appendChild(pagination);
+            resultsSection.appendChild(
+                pagination
+            );
         }
     }
 
@@ -431,7 +606,11 @@
         var pages = [];
 
         if (totalPages <= 7) {
-            for (var i = 1; i <= totalPages; i++) {
+            for (
+                var i = 1;
+                i <= totalPages;
+                i++
+            ) {
                 pages.push(i);
             }
 
@@ -444,13 +623,21 @@
             pages.push("...");
         }
 
-        var start = Math.max(2, currentPage - 1);
+        var start = Math.max(
+            2,
+            currentPage - 1
+        );
+
         var end = Math.min(
             totalPages - 1,
             currentPage + 1
         );
 
-        for (var page = start; page <= end; page++) {
+        for (
+            var page = start;
+            page <= end;
+            page++
+        ) {
             pages.push(page);
         }
 
@@ -464,7 +651,10 @@
     }
 
     function removePagination() {
-        var existing = document.getElementById("fl-pagination");
+        var existing =
+            document.getElementById(
+                "fl-pagination"
+            );
 
         if (existing) {
             existing.remove();
@@ -472,7 +662,8 @@
     }
 
     function scrollToResults() {
-        var resultsSection = document.querySelector(".fl-results");
+        var resultsSection =
+            document.querySelector(".fl-results");
 
         if (resultsSection) {
             resultsSection.scrollIntoView({
@@ -483,43 +674,71 @@
     }
 
     /*
-     * Rebuild AMC, Category and Sub-Category filters
-     * from the current search result set.
+     * ---------------------------------------------------------
+     * DYNAMIC FILTERS
+     * ---------------------------------------------------------
      */
+
     function rebuildDynamicFilters(funds) {
         buildCheckboxOptions(
             filterGroups.amc,
-            distinctValues(funds, "fundHouse"),
+            distinctValues(
+                funds,
+                "fundHouse"
+            ),
             "No AMC data available."
         );
 
         buildCheckboxOptions(
             filterGroups.category,
-            distinctValues(funds, "schemeCategory"),
+            distinctValues(
+                funds,
+                "schemeCategory"
+            ),
             "No category data available."
         );
 
         buildCheckboxOptions(
             filterGroups.subcategory,
-            distinctValues(funds, "schemeSubCategory"),
+            distinctValues(
+                funds,
+                "schemeSubCategory"
+            ),
             "No sub-category data available."
         );
     }
 
-    function distinctValues(funds, propertyName) {
+    function distinctValues(
+        funds,
+        propertyName
+    ) {
         var seen = {};
         var values = [];
 
         funds.forEach(function (fund) {
-            var value = fund[propertyName];
+            var value =
+                fund[propertyName];
 
-            if (value && !seen[value]) {
+            if (
+                value &&
+                !seen[value]
+            ) {
                 seen[value] = true;
                 values.push(value);
             }
         });
 
-        values.sort();
+        values.sort(
+            function (a, b) {
+                return a.localeCompare(
+                    b,
+                    undefined,
+                    {
+                        sensitivity: "base"
+                    }
+                );
+            }
+        );
 
         return values;
     }
@@ -539,10 +758,14 @@
         container.innerHTML = "";
 
         if (values.length === 0) {
-            var empty = document.createElement("p");
+            var empty =
+                document.createElement("p");
 
-            empty.className = "fl-filter-empty";
-            empty.textContent = emptyMessage;
+            empty.className =
+                "fl-filter-empty";
+
+            empty.textContent =
+                emptyMessage;
 
             container.appendChild(empty);
 
@@ -550,14 +773,19 @@
         }
 
         values.forEach(function (value) {
-            var label = document.createElement("label");
-            var input = document.createElement("input");
+            var label =
+                document.createElement("label");
+
+            var input =
+                document.createElement("input");
 
             input.type = "checkbox";
             input.value = value;
 
             if (
-                previouslyChecked.indexOf(value) !== -1
+                previouslyChecked.indexOf(
+                    value
+                ) !== -1
             ) {
                 input.checked = true;
             }
@@ -566,6 +794,8 @@
                 "change",
                 function () {
                     currentPage = 1;
+
+                    saveListState();
                     renderResults();
                 }
             );
@@ -583,56 +813,63 @@
     }
 
     /*
-     * Search boxes inside AMC/category/sub-category filters.
+     * ---------------------------------------------------------
+     * FILTER SEARCH BOXES
+     * ---------------------------------------------------------
      */
+
     function wireFilterSearchBoxes() {
         var searchBoxes =
             document.querySelectorAll(
                 ".fl-filter-search"
             );
 
-        searchBoxes.forEach(function (box) {
-            box.addEventListener(
-                "input",
-                function () {
-                    var targetContainer =
-                        document.getElementById(
-                            box.getAttribute(
-                                "data-target"
-                            )
-                        );
+        searchBoxes.forEach(
+            function (box) {
+                box.addEventListener(
+                    "input",
+                    function () {
+                        var targetContainer =
+                            document.getElementById(
+                                box.getAttribute(
+                                    "data-target"
+                                )
+                            );
 
-                    if (!targetContainer) {
-                        return;
-                    }
-
-                    var term =
-                        box.value
-                            .trim()
-                            .toLowerCase();
-
-                    var labels =
-                        targetContainer.querySelectorAll(
-                            "label"
-                        );
-
-                    labels.forEach(
-                        function (label) {
-                            var text =
-                                label.textContent
-                                    .trim()
-                                    .toLowerCase();
-
-                            label.style.display =
-                                term === "" ||
-                                text.indexOf(term) !== -1
-                                    ? ""
-                                    : "none";
+                        if (!targetContainer) {
+                            return;
                         }
-                    );
-                }
-            );
-        });
+
+                        var term =
+                            box.value
+                                .trim()
+                                .toLowerCase();
+
+                        var labels =
+                            targetContainer.querySelectorAll(
+                                "label"
+                            );
+
+                        labels.forEach(
+                            function (label) {
+                                var text =
+                                    label.textContent
+                                        .trim()
+                                        .toLowerCase();
+
+                                label.style.display =
+                                    term === "" ||
+                                    text.indexOf(
+                                        term
+                                    ) !== -1
+                                        ? ""
+                                        : "none";
+                            }
+                        );
+                    }
+                );
+            }
+        );
     }
 
     function wireStaticFilterGroups() {
@@ -653,6 +890,8 @@
                         "change",
                         function () {
                             currentPage = 1;
+
+                            saveListState();
                             renderResults();
                         }
                     );
@@ -661,9 +900,11 @@
     }
 
     /*
-     * Clears all filters and returns to page 1
-     * of the current search.
+     * ---------------------------------------------------------
+     * CLEAR FILTERS
+     * ---------------------------------------------------------
      */
+
     function clearAllFilters() {
         document
             .querySelectorAll(
@@ -691,15 +932,136 @@
 
         currentPage = 1;
 
+        saveListState();
         renderResults();
     }
 
     /*
-     * Search input.
+     * ---------------------------------------------------------
+     * SAVE / RESTORE LIST STATE
+     * ---------------------------------------------------------
      *
-     * Empty search = clear the page.
-     * It does NOT load Eligible Funds.
+     * This is what makes:
+     *
+     * Search → Page 4 → Filter → Open Fund
+     *                         ↓
+     *                  Back to Funds
+     *                         ↓
+     *                 Search → Page 4 → Filter
+     *
+     * work reliably.
      */
+
+    function saveListState() {
+        var state = {
+            query: searchInput.value.trim(),
+            page: currentPage,
+            filters: {
+                plan: getCheckedValues(
+                    filterGroups.plan
+                ),
+                option: getCheckedValues(
+                    filterGroups.option
+                ),
+                amc: getCheckedValues(
+                    filterGroups.amc
+                ),
+                category: getCheckedValues(
+                    filterGroups.category
+                ),
+                subcategory: getCheckedValues(
+                    filterGroups.subcategory
+                )
+            }
+        };
+
+        try {
+            sessionStorage.setItem(
+                listStateKey,
+                JSON.stringify(state)
+            );
+        }
+        catch (err) {
+            /*
+             * Session storage is only an enhancement.
+             * The application continues to work if it is unavailable.
+             */
+        }
+    }
+
+    function getSavedListState() {
+        try {
+            var raw =
+                sessionStorage.getItem(
+                    listStateKey
+                );
+
+            if (!raw) {
+                return null;
+            }
+
+            return JSON.parse(raw);
+        }
+        catch (err) {
+            return null;
+        }
+    }
+
+    function applySavedFilterState(state) {
+        if (!state || !state.filters) {
+            return;
+        }
+
+        setCheckedValues(
+            filterGroups.plan,
+            state.filters.plan
+        );
+
+        setCheckedValues(
+            filterGroups.option,
+            state.filters.option
+        );
+
+        setCheckedValues(
+            filterGroups.amc,
+            state.filters.amc
+        );
+
+        setCheckedValues(
+            filterGroups.category,
+            state.filters.category
+        );
+
+        setCheckedValues(
+            filterGroups.subcategory,
+            state.filters.subcategory
+        );
+    }
+
+    function setCheckedValues(
+        container,
+        values
+    ) {
+        if (!container || !Array.isArray(values)) {
+            return;
+        }
+
+        container
+            .querySelectorAll(
+                "input[type=checkbox]"
+            )
+            .forEach(function (box) {
+                box.checked =
+                    values.indexOf(box.value) !== -1;
+            });
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * SEARCH INPUT
+     * ---------------------------------------------------------
+     */
+
     searchInput.addEventListener(
         "input",
         function () {
@@ -713,42 +1075,58 @@
                 clearTimeout(debounceTimer);
             }
 
-            debounceTimer = setTimeout(
-                function () {
-                    if (value === "") {
-                        currentFunds = [];
-                        currentPage = 1;
+            debounceTimer =
+                setTimeout(
+                    function () {
+                        if (value === "") {
+                            currentFunds = [];
+                            currentPage = 1;
 
-                        resultsTitle.textContent =
-                            "Search Funds";
+                            resultsTitle.textContent =
+                                "Search Funds";
 
-                        resultsCount.textContent = "";
+                            resultsCount.textContent =
+                                "";
 
-                        resultsGrid.innerHTML = "";
+                            resultsGrid.innerHTML =
+                                "";
 
-                        resultsEmpty.hidden = true;
+                            resultsEmpty.hidden =
+                                true;
 
-                        removePagination();
+                            removePagination();
 
-                        rebuildDynamicFilters(
-                            currentFunds
-                        );
+                            rebuildDynamicFilters(
+                                currentFunds
+                            );
 
-                        setStatus("");
+                            setStatus("");
 
-                        return;
-                    }
+                            try {
+                                sessionStorage.removeItem(
+                                    listStateKey
+                                );
+                            }
+                            catch (err) {
+                                // Ignore storage errors.
+                            }
 
-                    runSearch(value);
-                },
-                300
-            );
+                            return;
+                        }
+
+                        runSearch(value, null);
+                    },
+                    300
+                );
         }
     );
 
     /*
-     * Clear search.
+     * ---------------------------------------------------------
+     * CLEAR SEARCH
+     * ---------------------------------------------------------
      */
+
     searchClearBtn.addEventListener(
         "click",
         function () {
@@ -762,11 +1140,14 @@
             resultsTitle.textContent =
                 "Search Funds";
 
-            resultsCount.textContent = "";
+            resultsCount.textContent =
+                "";
 
-            resultsGrid.innerHTML = "";
+            resultsGrid.innerHTML =
+                "";
 
-            resultsEmpty.hidden = true;
+            resultsEmpty.hidden =
+                true;
 
             removePagination();
 
@@ -775,6 +1156,15 @@
             );
 
             setStatus("");
+
+            try {
+                sessionStorage.removeItem(
+                    listStateKey
+                );
+            }
+            catch (err) {
+                // Ignore storage errors.
+            }
 
             searchInput.focus();
         }
@@ -787,14 +1177,56 @@
         );
     }
 
+    /*
+     * ---------------------------------------------------------
+     * INITIALISE
+     * ---------------------------------------------------------
+     */
+
     wireFilterSearchBoxes();
     wireStaticFilterGroups();
 
     /*
-     * IMPORTANT:
-     * Nothing is loaded here.
-     *
-     * The page starts empty and only searches
-     * after the user enters something.
+     * If Analytics/index.cshtml sent the user back to
+     * the funds page, restore their previous search state.
      */
+    var shouldRestore = false;
+
+    try {
+        shouldRestore =
+            sessionStorage.getItem(
+                returnToFundsKey
+            ) === "1";
+
+        if (shouldRestore) {
+            sessionStorage.removeItem(
+                returnToFundsKey
+            );
+        }
+    }
+    catch (err) {
+        shouldRestore = false;
+    }
+
+    if (shouldRestore) {
+        var savedState =
+            getSavedListState();
+
+        if (
+            savedState &&
+            savedState.query
+        ) {
+            searchInput.value =
+                savedState.query;
+
+            searchClearBtn.hidden =
+                false;
+
+            runSearch(
+                savedState.query,
+                savedState
+            );
+        }
+    }
+
 })();

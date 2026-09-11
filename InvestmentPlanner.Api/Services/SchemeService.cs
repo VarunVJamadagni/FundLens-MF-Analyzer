@@ -6,16 +6,18 @@ namespace InvestmentPlanner.Api.Services
     /// <summary>
     /// Responsible for:
     ///   - searching schemes
-    ///   - searching fund houses through the local AMFI-generated funds.json
-    ///   - obtaining candidate schemes for the "initial eligible funds" list
+    ///   - searching the local AMFI-generated funds.json catalogue
+    ///   - obtaining candidate schemes for the initial eligible-funds list
     ///   - determining eligibility when required
     ///
-    /// IMPORTANT:
-    ///   - If the query matches a fund house in funds.json, all active schemes
-    ///     belonging to that fund house are returned.
-    ///   - Otherwise, SearchAsync falls back to MFAPI's live search endpoint.
-    ///   - The seed queries below are used ONLY to discover candidates for the
-    ///     initial/eligible list.
+    /// User searches use the local AMFI catalogue first.
+    /// Searches can match:
+    ///   - Fund House
+    ///   - Scheme Name
+    ///   - Category
+    ///   - Sub-Category
+    ///
+    /// MFAPI remains as a fallback when no local match is found.
     /// </summary>
     public class SchemeService
     {
@@ -24,9 +26,6 @@ namespace InvestmentPlanner.Api.Services
         private readonly ILogger<SchemeService> _logger;
         private readonly AmfiFundDataService _amfiFundDataService;
 
-        // Broad, generic seed terms used only to find candidates for the
-        // initial eligible-funds list. These are not scheme codes and they
-        // do not restrict user search in any way.
         private static readonly string[] EligibleCandidateSeeds =
         {
             "Direct Growth",
@@ -55,22 +54,28 @@ namespace InvestmentPlanner.Api.Services
         }
 
         /// <summary>
-        /// Calls MFAPI's live search endpoint for the given query and returns
-        /// the raw scheme code / scheme name pairs MFAPI returns.
+        /// Calls MFAPI's live search endpoint.
+        /// Used as a fallback when the local AMFI catalogue
+        /// does not contain a match.
         /// </summary>
         public async Task<List<Scheme>> SearchSchemesRawAsync(string query)
         {
             try
             {
+                var search = query?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(search))
+                    return new List<Scheme>();
+
                 var response = await _httpClient.GetAsync(
-                    $"mf/search?q={Uri.EscapeDataString(query)}");
+                    $"mf/search?q={Uri.EscapeDataString(search)}");
 
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogWarning(
                         "MFAPI search returned {StatusCode} for query '{Query}'",
                         response.StatusCode,
-                        query);
+                        search);
 
                     return new List<Scheme>();
                 }
@@ -110,81 +115,117 @@ namespace InvestmentPlanner.Api.Services
         }
 
         /// <summary>
-        /// Searches the locally generated funds.json for a matching fund house.
+        /// User-facing fund search.
         ///
-        /// Returns ALL active schemes associated with the fund house.
-        /// No 25-result limit is applied here.
-        /// </summary>
-        private async Task<List<Scheme>> SearchFundHouseFromJsonAsync(string query)
-        {
-            try
-            {
-                var funds =
-                    await _amfiFundDataService.GetFundsByFundHouseAsync(query);
-
-                return funds
-                    .Select(f => new Scheme
-                    {
-                        SchemeCode = int.Parse(f.SchemeCode),
-                        SchemeName = f.SchemeName
-                    })
-                    .ToList();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Error searching funds.json for fund house '{FundHouse}'",
-                    query);
-
-                return new List<Scheme>();
-            }
-        }
-
-        /// <summary>
-        /// User-facing search.
+        /// The local AMFI catalogue is searched first using:
+        ///   - Fund House
+        ///   - Scheme Name
+        ///   - Category
+        ///   - Sub-Category
         ///
-        /// First checks funds.json for a matching fund house.
-        /// If a fund house is found:
-        ///   - all active schemes from funds.json are used
-        ///   - no 25-result limit is applied
+        /// All local matches are returned.
         ///
-        /// If no fund house is found:
-        ///   - the existing MFAPI live search is used
-        ///   - the existing 25-result limit is applied
-        ///
-        /// All results are then enriched using the existing analytics service.
+        /// If no local match exists, MFAPI is used as a fallback
+        /// with the existing result limit.
         /// </summary>
         public async Task<List<AnalyticsApiResponse>> SearchAsync(
             string query,
             int maxResults = DefaultSearchResultLimit)
         {
-            // First check the local AMFI fund catalogue.
-            var fundHouseResults =
-                await SearchFundHouseFromJsonAsync(query);
+            var search = query?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(search))
+                return new List<AnalyticsApiResponse>();
 
             List<Scheme> schemes;
 
-            if (fundHouseResults.Count > 0)
+            try
             {
-                // A fund house was found in funds.json.
-                //
-                // IMPORTANT:
-                // Do not apply the normal maxResults limit here.
-                // We want ALL active schemes belonging to this fund house.
-                schemes = fundHouseResults;
+                // -----------------------------------------------------
+                // FIRST: SEARCH LOCAL AMFI CATALOGUE
+                // -----------------------------------------------------
+
+                var localFunds =
+                    await _amfiFundDataService.SearchFundsAsync(search);
+
+                if (localFunds.Count > 0)
+                {
+                    // IMPORTANT:
+                    // Do not limit local search results.
+                    //
+                    // This allows:
+                    // ICICI
+                    // HDFC
+                    // Flexi
+                    // Large
+                    // Mid
+                    // Small
+                    // etc.
+                    //
+                    // to return all matching schemes.
+                    schemes = localFunds
+                        .Select(f =>
+                        {
+                            if (!int.TryParse(
+                                    f.SchemeCode,
+                                    out var schemeCode))
+                            {
+                                return null;
+                            }
+
+                            return new Scheme
+                            {
+                                SchemeCode = schemeCode,
+                                SchemeName = f.SchemeName
+                            };
+                        })
+                        .Where(s => s != null)
+                        .Select(s => s!)
+                        .ToList();
+                }
+                else
+                {
+                    // -------------------------------------------------
+                    // FALLBACK: MFAPI
+                    // -------------------------------------------------
+
+                    var rawResults =
+                        await SearchSchemesRawAsync(search);
+
+                    schemes = rawResults
+                        .Take(maxResults)
+                        .ToList();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                // Not a fund-house search.
-                // Preserve the existing MFAPI search behaviour.
+                _logger.LogError(
+                    ex,
+                    "Error searching local AMFI catalogue for query '{Query}'",
+                    search);
+
+                // If the local catalogue cannot be read,
+                // preserve the existing MFAPI fallback.
                 var rawResults =
-                    await SearchSchemesRawAsync(query);
+                    await SearchSchemesRawAsync(search);
 
                 schemes = rawResults
                     .Take(maxResults)
                     .ToList();
             }
+
+            if (schemes.Count == 0)
+                return new List<AnalyticsApiResponse>();
+
+            // Remove duplicate scheme codes before requesting analytics.
+            schemes = schemes
+                .GroupBy(s => s.SchemeCode)
+                .Select(g => g.First())
+                .ToList();
+
+            // ---------------------------------------------------------
+            // BUILD ANALYTICS FOR THE MATCHING SCHEMES
+            // ---------------------------------------------------------
 
             var analyticsTasks = schemes
                 .Select(s =>
@@ -193,19 +234,29 @@ namespace InvestmentPlanner.Api.Services
                         s.SchemeName))
                 .ToList();
 
-            var results = await Task.WhenAll(analyticsTasks);
+            try
+            {
+                var results =
+                    await Task.WhenAll(analyticsTasks);
 
-            return results
-                .Where(r => r != null)
-                .Select(r => r!)
-                .ToList();
+                return results
+                    .Where(r => r != null)
+                    .Select(r => r!)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error building analytics for search query '{Query}'",
+                    search);
+
+                return new List<AnalyticsApiResponse>();
+            }
         }
 
         /// <summary>
-        /// Discovers a small set of funds that have ALL required analytics
-        /// periods available (1M/3M/6M/1Y/3Y/5Y/10Y), without hardcoding any
-        /// scheme codes and without fetching MFAPI's entire fund list.
-        /// Stops as soon as enough eligible funds are found.
+        /// Discovers funds that have all required analytics periods.
         /// </summary>
         public async Task<List<AnalyticsApiResponse>> GetEligibleFundsAsync(
             int desiredCount = DefaultEligibleCount,

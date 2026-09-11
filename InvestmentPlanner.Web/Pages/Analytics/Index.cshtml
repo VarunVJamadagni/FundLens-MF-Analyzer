@@ -5,7 +5,12 @@
 }
 
 <div class="fl-analytics-page">
-    <a class="fl-back-link" href="/">&larr; Back to Funds</a>
+
+    <a class="fl-back-link"
+       href="/"
+       onclick="sessionStorage.setItem('fundLensReturnToFunds', '1');">
+        &larr; Back to Funds
+    </a>
 
     @if (Model.ErrorMessage != null)
     {
@@ -17,70 +22,156 @@
     else if (Model.Fund != null)
     {
         var fund = Model.Fund;
+
         <div class="fl-analytics-card">
+
             <div class="fl-analytics-header">
+
                 <div>
-                    <h1 class="fl-analytics-name">@fund.SchemeName</h1>
+
+                    <h1 class="fl-analytics-name">
+                        @fund.SchemeName
+                    </h1>
+
                     <div class="fl-analytics-tags">
+
                         @if (!string.IsNullOrWhiteSpace(fund.FundHouse))
                         {
-                            <span class="fl-fund-tag">@fund.FundHouse</span>
+                            <span class="fl-fund-tag">
+                                @fund.FundHouse
+                            </span>
                         }
-                        <span class="fl-fund-tag fl-fund-plan">@fund.Plan</span>
-                        <span class="fl-fund-tag">@fund.Option</span>
+
+                        <span class="fl-fund-tag fl-fund-plan">
+                            @fund.Plan
+                        </span>
+
+                        <span class="fl-fund-tag">
+                            @fund.Option
+                        </span>
+
                         @if (!string.IsNullOrWhiteSpace(fund.SchemeCategory))
                         {
-                            <span class="fl-fund-tag">@fund.SchemeCategory</span>
+                            <span class="fl-fund-tag">
+                                @fund.SchemeCategory
+                            </span>
                         }
+
                     </div>
+
                 </div>
+
                 <div class="fl-analytics-nav">
-                    <span class="fl-analytics-nav-label">Current NAV</span>
-                    <span class="fl-analytics-nav-value">&#8377;@fund.CurrentNAV.ToString("0.0000")</span>
+
+                    <span class="fl-analytics-nav-label">
+                        Current NAV
+                    </span>
+
+                    <span class="fl-analytics-nav-value">
+                        &#8377;@fund.CurrentNAV.ToString("0.0000")
+                    </span>
+
                 </div>
+
             </div>
 
             <div class="fl-analytics-section">
+
                 <h2>Returns</h2>
+
                 <div class="fl-analytics-grid">
+
                     <div class="fl-analytics-stat">
-                        <span class="fl-analytics-stat-label">1 Month</span>
-                        <span class="fl-analytics-stat-value">@fund.Return1Month</span>
+                        <span class="fl-analytics-stat-label">
+                            1 Month
+                        </span>
+
+                        <span class="fl-analytics-stat-value">
+                            @fund.Return1Month
+                        </span>
                     </div>
+
                     <div class="fl-analytics-stat">
-                        <span class="fl-analytics-stat-label">3 Months</span>
-                        <span class="fl-analytics-stat-value">@fund.Return3Month</span>
+                        <span class="fl-analytics-stat-label">
+                            3 Months
+                        </span>
+
+                        <span class="fl-analytics-stat-value">
+                            @fund.Return3Month
+                        </span>
                     </div>
+
                     <div class="fl-analytics-stat">
-                        <span class="fl-analytics-stat-label">6 Months</span>
-                        <span class="fl-analytics-stat-value">@fund.Return6Month</span>
+                        <span class="fl-analytics-stat-label">
+                            6 Months
+                        </span>
+
+                        <span class="fl-analytics-stat-value">
+                            @fund.Return6Month
+                        </span>
                     </div>
+
                 </div>
+
             </div>
 
             <div class="fl-analytics-section">
+
                 <h2>CAGR</h2>
+
                 <div class="fl-analytics-grid">
+
                     <div class="fl-analytics-stat">
-                        <span class="fl-analytics-stat-label">1 Year</span>
-                        <span class="fl-analytics-stat-value">@fund.CAGR1Year</span>
+                        <span class="fl-analytics-stat-label">
+                            1 Year
+                        </span>
+
+                        <span class="fl-analytics-stat-value">
+                            @fund.CAGR1Year
+                        </span>
                     </div>
+
                     <div class="fl-analytics-stat">
-                        <span class="fl-analytics-stat-label">3 Years</span>
-                        <span class="fl-analytics-stat-value">@fund.CAGR3Year</span>
+                        <span class="fl-analytics-stat-label">
+                            3 Years
+                        </span>
+
+                        <span class="fl-analytics-stat-value">
+                            @fund.CAGR3Year
+                        </span>
                     </div>
+
                     <div class="fl-analytics-stat">
-                        <span class="fl-analytics-stat-label">5 Years</span>
-                        <span class="fl-analytics-stat-value">@fund.CAGR5Year</span>
+                        <span class="fl-analytics-stat-label">
+                            5 Years
+                        </span>
+
+                        <span class="fl-analytics-stat-value">
+                            @fund.CAGR5Year
+                        </span>
                     </div>
+
                     <div class="fl-analytics-stat">
-                        <span class="fl-analytics-stat-label">10 Years</span>
-                        <span class="fl-analytics-stat-value">@fund.CAGR10Year</span>
+                        <span class="fl-analytics-stat-label">
+                            10 Years
+                        </span>
+
+                        <span class="fl-analytics-stat-value">
+                            @fund.CAGR10Year
+                        </span>
                     </div>
+
                 </div>
+
             </div>
+
         </div>
     }
 
-    <a class="fl-back-link fl-back-link-bottom" href="/">&larr; Back to Funds</a>
+    <a class="fl-back-link fl-back-link-bottom"
+       href="/"
+       onclick="sessionStorage.setItem('fundLensReturnToFunds', '1');">
+        &larr; Back to Funds
+    </a>
+
 </div>
