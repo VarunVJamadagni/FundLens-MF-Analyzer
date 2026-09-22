@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using InvestmentPlanner.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -9,7 +10,9 @@ namespace InvestmentPlanner.Web.Pages
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<IndexModel> _logger;
 
-        public IndexModel(IHttpClientFactory httpClientFactory, ILogger<IndexModel> logger)
+        public IndexModel(
+            IHttpClientFactory httpClientFactory,
+            ILogger<IndexModel> logger)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
@@ -17,42 +20,105 @@ namespace InvestmentPlanner.Web.Pages
 
         public void OnGet()
         {
-            // No huge fund list on initial page load - the eligible list is
-            // loaded on demand via OnGetEligibleAsync when the search box is focused.
+            // The landing page does not load eligible funds.
+            // Funds are loaded only when the user searches
+            // or applies filters.
         }
 
         /// <summary>
-        /// Called via fetch('?handler=Eligible') when the user focuses the
-        /// search box with an empty query. Forwards to GET /api/Scheme/eligible.
+        /// Called via:
+        /// GET ?handler=FilterOptions
+        ///
+        /// Returns all available filter values from the
+        /// local AMFI-generated funds catalogue.
         /// </summary>
-        public async Task<JsonResult> OnGetEligibleAsync()
+        public async Task<JsonResult> OnGetFilterOptionsAsync()
         {
             try
             {
-                var client = _httpClientFactory.CreateClient("InvestmentPlannerApi");
-                var response = await client.GetAsync("api/Scheme/eligible");
+                var client =
+                    _httpClientFactory.CreateClient("InvestmentPlannerApi");
+
+                var response =
+                    await client.GetAsync("api/Scheme/filter-options");
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Api returned {StatusCode} for eligible funds", response.StatusCode);
+                    _logger.LogWarning(
+                        "Api returned {StatusCode} while fetching filter options",
+                        response.StatusCode);
+
+                    return new JsonResult(new FilterOptions());
+                }
+
+                var options =
+                    await response.Content
+                        .ReadFromJsonAsync<FilterOptions>();
+
+                return new JsonResult(
+                    options ?? new FilterOptions());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error fetching filter options from Api");
+
+                return new JsonResult(new FilterOptions());
+            }
+        }
+
+        /// <summary>
+        /// Called via:
+        /// POST ?handler=Filter
+        ///
+        /// Forwards the selected filters to the API.
+        /// </summary>
+        public async Task<JsonResult> OnPostFilterAsync(
+            [FromBody] FundFilterRequest request)
+        {
+            try
+            {
+                request ??= new FundFilterRequest();
+
+                var client =
+                    _httpClientFactory.CreateClient("InvestmentPlannerApi");
+
+                var response =
+                    await client.PostAsJsonAsync(
+                        "api/Scheme/filter",
+                        request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning(
+                        "Api returned {StatusCode} while filtering funds",
+                        response.StatusCode);
+
                     return new JsonResult(new List<object>());
                 }
 
                 var funds = await response.Content.ReadFromJsonAsync<List<AnalyticsApiResponse>>();
-                return new JsonResult(funds ?? new List<AnalyticsApiResponse>());
+return new JsonResult(funds ?? new List<AnalyticsApiResponse>());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching eligible funds from Api");
+                _logger.LogError(
+                    ex,
+                    "Error filtering funds via Api");
+
                 return new JsonResult(new List<object>());
             }
         }
 
         /// <summary>
-        /// Called via fetch('?handler=Search&amp;query=...') as the user types.
-        /// Forwards to GET /api/Scheme/search?query=... on the Api project.
+        /// Existing search handler.
+        ///
+        /// This preserves the current search flow:
+        /// GET ?handler=Search&query=...
         /// </summary>
-        public async Task<JsonResult> OnGetSearchAsync(string? query)
+        public async Task<JsonResult> OnGetSearchAsync(
+            string? query)
         {
             if (string.IsNullOrWhiteSpace(query))
             {
@@ -61,21 +127,37 @@ namespace InvestmentPlanner.Web.Pages
 
             try
             {
-                var client = _httpClientFactory.CreateClient("InvestmentPlannerApi");
-                var response = await client.GetAsync($"api/Scheme/search?query={Uri.EscapeDataString(query)}");
+                var client =
+                    _httpClientFactory.CreateClient("InvestmentPlannerApi");
+
+                var response =
+                    await client.GetAsync(
+                        $"api/Scheme/search?query={Uri.EscapeDataString(query)}");
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Api returned {StatusCode} for search query '{Query}'", response.StatusCode, query);
+                    _logger.LogWarning(
+                        "Api returned {StatusCode} for search query '{Query}'",
+                        response.StatusCode,
+                        query);
+
                     return new JsonResult(new List<object>());
                 }
 
-                var funds = await response.Content.ReadFromJsonAsync<List<AnalyticsApiResponse>>();
-                return new JsonResult(funds ?? new List<AnalyticsApiResponse>());
+                var funds =
+                    await response.Content
+                        .ReadFromJsonAsync<List<AnalyticsApiResponse>>();
+
+                return new JsonResult(
+                    funds ?? new List<AnalyticsApiResponse>());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error searching funds via Api for query '{Query}'", query);
+                _logger.LogError(
+                    ex,
+                    "Error searching funds via Api for query '{Query}'",
+                    query);
+
                 return new JsonResult(new List<object>());
             }
         }

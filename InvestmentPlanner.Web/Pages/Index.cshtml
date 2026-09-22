@@ -4,10 +4,14 @@
     ViewData["Title"] = "Funds";
 }
 
+@Html.AntiForgeryToken()
+
 <section class="fl-hero">
     <div class="fl-hero-inner">
         <h1>Find and analyze mutual funds</h1>
-        <p class="fl-hero-sub">Live NAV, returns and CAGR sourced directly from MFAPI.</p>
+        <p class="fl-hero-sub">
+            Live NAV, returns and CAGR sourced directly from MFAPI.
+        </p>
 
         <div class="fl-search-wrap">
             <input
@@ -16,103 +20,269 @@
                 type="text"
                 placeholder="Search by fund name, AMC, or category&hellip; e.g. HDFC, SBI, Flexi Cap"
                 autocomplete="off" />
-            <button id="fl-search-clear" class="fl-search-clear" type="button" aria-label="Clear search" hidden>&times;</button>
+
+            <button
+                id="fl-search-clear"
+                class="fl-search-clear"
+                type="button"
+                aria-label="Clear search"
+                hidden>
+                &times;
+            </button>
         </div>
-        <p id="fl-search-status" class="fl-search-status" aria-live="polite"></p>
+
+        <p
+            id="fl-search-status"
+            class="fl-search-status"
+            aria-live="polite">
+        </p>
     </div>
 </section>
 
 <div class="fl-content">
+
     <aside class="fl-filters" id="fl-filters">
+
         <h2 class="fl-filters-title">Filters</h2>
 
+        <!-- PLAN -->
         <div class="fl-filter-group">
             <h3>Plan</h3>
-            <div class="fl-checkbox-list" id="fl-filter-plan">
-                <label><input type="checkbox" value="Direct" /> Direct</label>
-                <label><input type="checkbox" value="Regular" /> Regular</label>
-                <label><input type="checkbox" value="Institutional" /> Institutional</label>
-                <label><input type="checkbox" value="Retail" /> Retail</label>
-                <label><input type="checkbox" value="Standard" /> Standard</label>
-                <label><input type="checkbox" value="Defunct" /> Defunct</label>
+
+            <div
+                class="fl-checkbox-list"
+                id="fl-filter-plan">
+
+                <p class="fl-filter-empty">
+                    Loading plans&hellip;
+                </p>
+
             </div>
         </div>
 
+        <!-- OPTION -->
         <div class="fl-filter-group">
             <h3>Option</h3>
-            <div class="fl-checkbox-list" id="fl-filter-option">
-                <label><input type="checkbox" value="Growth" /> Growth</label>
-                <label><input type="checkbox" value="IDCW" /> IDCW</label>
-                <label><input type="checkbox" value="Other" /> Other</label>
+
+            <div
+                class="fl-checkbox-list"
+                id="fl-filter-option">
+
+                <p class="fl-filter-empty">
+                    Loading options&hellip;
+                </p>
+
             </div>
         </div>
 
+        <!-- AMC -->
         <div class="fl-filter-group">
             <h3>AMC</h3>
-            <input type="text" class="fl-filter-search" placeholder="Search AMCs&hellip;" data-target="fl-filter-amc" />
-            <div class="fl-checkbox-list fl-checkbox-list-scroll" id="fl-filter-amc">
-                <p class="fl-filter-empty">Load funds to see available AMCs.</p>
+
+            <input
+                type="text"
+                class="fl-filter-search"
+                placeholder="Search AMCs&hellip;"
+                data-target="fl-filter-amc"
+                autocomplete="off" />
+
+            <div
+                class="fl-checkbox-list fl-checkbox-list-scroll"
+                id="fl-filter-amc">
+
+                <p class="fl-filter-empty">
+                    Loading AMCs&hellip;
+                </p>
+
             </div>
         </div>
 
+        <!-- CATEGORY -->
         <div class="fl-filter-group">
             <h3>Category</h3>
-            <input type="text" class="fl-filter-search" placeholder="Search categories&hellip;" data-target="fl-filter-category" />
-            <div class="fl-checkbox-list fl-checkbox-list-scroll" id="fl-filter-category">
-                <p class="fl-filter-empty">Load funds to see available categories.</p>
+
+            <input
+                type="text"
+                class="fl-filter-search"
+                placeholder="Search categories&hellip;"
+                data-target="fl-filter-category"
+                autocomplete="off" />
+
+            <div
+                class="fl-checkbox-list fl-checkbox-list-scroll"
+                id="fl-filter-category">
+
+                <p class="fl-filter-empty">
+                    Loading categories&hellip;
+                </p>
+
             </div>
         </div>
 
+        <!-- SUB-CATEGORY -->
         <div class="fl-filter-group">
             <h3>Sub-Category</h3>
-            <input type="text" class="fl-filter-search" placeholder="Search sub-categories&hellip;" data-target="fl-filter-subcategory" />
-            <div class="fl-checkbox-list fl-checkbox-list-scroll" id="fl-filter-subcategory">
-                <p class="fl-filter-empty">Load funds to see available sub-categories.</p>
+
+            <input
+                type="text"
+                class="fl-filter-search"
+                placeholder="Search sub-categories&hellip;"
+                data-target="fl-filter-subcategory"
+                autocomplete="off" />
+
+            <div
+                class="fl-checkbox-list fl-checkbox-list-scroll"
+                id="fl-filter-subcategory">
+
+                <p class="fl-filter-empty">
+                    Loading sub-categories&hellip;
+                </p>
+
             </div>
         </div>
 
-        <button id="fl-filters-clear" class="fl-filters-clear" type="button">Clear filters</button>
+        <!-- FILTER ACTIONS -->
+        <div class="fl-filter-actions">
+
+            <button
+                id="fl-filters-apply"
+                class="fl-filters-apply"
+                type="button">
+                Apply Filters
+            </button>
+
+            <button
+                id="fl-filters-clear"
+                class="fl-filters-clear"
+                type="button">
+                Clear Filters
+            </button>
+
+        </div>
+
     </aside>
 
     <section class="fl-results">
+
         <div class="fl-results-header">
-            <h2 id="fl-results-title">Eligible Funds</h2>
-            <span id="fl-results-count" class="fl-results-count"></span>
+
+            <h2 id="fl-results-title">
+                Search Funds
+            </h2>
+
+            <span
+                id="fl-results-count"
+                class="fl-results-count">
+            </span>
+
         </div>
 
-        <div id="fl-results-grid" class="fl-fund-grid"></div>
-
-        <div id="fl-results-empty" class="fl-empty-state" hidden>
-            <p>No funds match your search and filters right now.</p>
+        <div
+            id="fl-results-grid"
+            class="fl-fund-grid">
         </div>
 
-        <div id="fl-results-loading" class="fl-loading-state">
-            <p>Loading funds&hellip;</p>
+        <div
+            id="fl-results-empty"
+            class="fl-empty-state"
+            hidden>
+
+            <p>
+                No funds match your search and filters right now.
+            </p>
+
         </div>
+
+        <div
+            id="fl-results-loading"
+            class="fl-loading-state"
+            hidden>
+
+            <p>
+                Loading funds&hellip;
+            </p>
+
+        </div>
+
     </section>
 </div>
 
+<!-- =========================================================
+     FUND CARD TEMPLATE
+     ========================================================= -->
+
 <template id="fl-fund-card-template">
-    <a class="fl-fund-card" href="#">
+
+    <a
+        class="fl-fund-card"
+        href="#">
+
         <div class="fl-fund-card-header">
+
             <h3 class="fl-fund-name"></h3>
-            <span class="fl-fund-tag fl-fund-plan"></span>
+
+            <span
+                class="fl-fund-tag fl-fund-plan">
+            </span>
+
         </div>
+
         <div class="fl-fund-nav">
-            <span class="fl-fund-nav-label">NAV</span>
-            <span class="fl-fund-nav-value"></span>
+
+            <span class="fl-fund-nav-label">
+                NAV
+            </span>
+
+            <span class="fl-fund-nav-value">
+            </span>
+
         </div>
+
         <div class="fl-fund-metrics">
-            <div class="fl-metric"><span class="fl-metric-label">1M</span><span class="fl-metric-value fl-m1"></span></div>
-            <div class="fl-metric"><span class="fl-metric-label">3M</span><span class="fl-metric-value fl-m3"></span></div>
-            <div class="fl-metric"><span class="fl-metric-label">6M</span><span class="fl-metric-value fl-m6"></span></div>
-            <div class="fl-metric"><span class="fl-metric-label">1Y</span><span class="fl-metric-value fl-y1"></span></div>
-            <div class="fl-metric"><span class="fl-metric-label">3Y</span><span class="fl-metric-value fl-y3"></span></div>
-            <div class="fl-metric"><span class="fl-metric-label">5Y</span><span class="fl-metric-value fl-y5"></span></div>
-            <div class="fl-metric"><span class="fl-metric-label">10Y</span><span class="fl-metric-value fl-y10"></span></div>
+
+            <div class="fl-metric">
+                <span class="fl-metric-label">1M</span>
+                <span class="fl-metric-value fl-m1"></span>
+            </div>
+
+            <div class="fl-metric">
+                <span class="fl-metric-label">3M</span>
+                <span class="fl-metric-value fl-m3"></span>
+            </div>
+
+            <div class="fl-metric">
+                <span class="fl-metric-label">6M</span>
+                <span class="fl-metric-value fl-m6"></span>
+            </div>
+
+            <div class="fl-metric">
+                <span class="fl-metric-label">1Y</span>
+                <span class="fl-metric-value fl-y1"></span>
+            </div>
+
+            <div class="fl-metric">
+                <span class="fl-metric-label">3Y</span>
+                <span class="fl-metric-value fl-y3"></span>
+            </div>
+
+            <div class="fl-metric">
+                <span class="fl-metric-label">5Y</span>
+                <span class="fl-metric-value fl-y5"></span>
+            </div>
+
+            <div class="fl-metric">
+                <span class="fl-metric-label">10Y</span>
+                <span class="fl-metric-value fl-y10"></span>
+            </div>
+
         </div>
+
         <div class="fl-fund-footer">
+
             <span class="fl-fund-amc"></span>
+
         </div>
+
     </a>
+
 </template>

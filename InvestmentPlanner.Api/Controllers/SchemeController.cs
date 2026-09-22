@@ -44,6 +44,64 @@ namespace InvestmentPlanner.Api.Controllers
         }
 
         /// <summary>
+/// GET /api/Scheme/filter-options
+/// Returns all available filter values from the local AMFI catalogue.
+/// </summary>
+[HttpGet("filter-options")]
+public async Task<ActionResult<FilterOptions>> FilterOptions()
+{
+    try
+    {
+        var options = await _schemeService.GetFilterOptionsAsync();
+
+        return Ok(options);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(
+            ex,
+            "Error fetching filter options");
+
+        return StatusCode(
+            500,
+            new
+            {
+                message = "Unable to retrieve filter options."
+            });
+    }
+}
+
+/// <summary>
+/// POST /api/Scheme/filter
+/// Filters funds from the local AMFI catalogue.
+/// </summary>
+[HttpPost("filter")]
+public async Task<ActionResult<List<AnalyticsApiResponse>>> Filter(
+    [FromBody] FundFilterRequest request)
+{
+    try
+    {
+        var results =
+            await _schemeService.FilterFundsAsync(request);
+
+        return Ok(results);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(
+            ex,
+            "Error filtering funds");
+
+        return StatusCode(
+            500,
+            new
+            {
+                message = "Unable to filter funds at this time."
+            });
+    }
+}
+
+        /// <summary>
         /// GET /api/Scheme/eligible
         /// Returns a small set of funds that have every required analytics
         /// period available. Never hardcoded - discovered dynamically.

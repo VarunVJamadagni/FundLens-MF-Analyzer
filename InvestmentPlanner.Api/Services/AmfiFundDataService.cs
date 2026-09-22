@@ -63,6 +63,12 @@ public class AmfiFundDataService
             }
         }
 
+        if (latestNavDate == DateTime.MinValue)
+        {
+            throw new InvalidOperationException(
+                "Could not determine the latest NAV date from NAVAll.txt.");
+        }
+
         var activeDateCutoff = latestNavDate.AddDays(-7);
 
         // ---------------------------------------------------------
@@ -87,6 +93,34 @@ public class AmfiFundDataService
             var parts = trimmedLine.Split(';');
 
             // -----------------------------------------------------
+            // CATEGORY / SUB-CATEGORY HEADER
+            // -----------------------------------------------------
+
+            // IMPORTANT:
+            // AMFI structure is:
+            //
+            // Category Header
+            //      ↓
+            // Fund House
+            //      ↓
+            // Schemes
+            //
+            // Therefore category must be set BEFORE the fund house
+            // and must NOT be cleared when the fund house changes.
+
+            if (parts.Length == 1 &&
+                TryParseCategoryHeader(
+                    trimmedLine,
+                    out var category,
+                    out var subCategory))
+            {
+                currentCategory = category;
+                currentSubCategory = subCategory;
+
+                continue;
+            }
+
+            // -----------------------------------------------------
             // FUND HOUSE
             // -----------------------------------------------------
 
@@ -97,23 +131,10 @@ public class AmfiFundDataService
             {
                 currentFundHouse = trimmedLine;
 
-                currentCategory = string.Empty;
-                currentSubCategory = string.Empty;
-
-                continue;
-            }
-
-            // -----------------------------------------------------
-            // CATEGORY / SUB-CATEGORY HEADER
-            // -----------------------------------------------------
-
-            if (parts.Length == 1 &&
-                IsCategoryHeader(trimmedLine))
-            {
-                ParseCategoryHeader(
-                    trimmedLine,
-                    out currentCategory,
-                    out currentSubCategory);
+                // DO NOT reset currentCategory/currentSubCategory.
+                //
+                // Multiple fund houses belong to the same category
+                // until the next category header appears.
 
                 continue;
             }
@@ -206,6 +227,28 @@ public class AmfiFundDataService
 
         await File.WriteAllTextAsync(_jsonFilePath, json);
 
+        // ---------------------------------------------------------
+        // GENERATION SUMMARY
+        // ---------------------------------------------------------
+
+        var categoryCount = funds
+            .Count(x => !string.IsNullOrWhiteSpace(x.Category));
+
+        var subCategoryCount = funds
+            .Count(x => !string.IsNullOrWhiteSpace(x.SubCategory));
+
+        var distinctCategories = funds
+            .Where(x => !string.IsNullOrWhiteSpace(x.Category))
+            .Select(x => x.Category)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        var distinctSubCategories = funds
+            .Where(x => !string.IsNullOrWhiteSpace(x.SubCategory))
+            .Select(x => x.SubCategory)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
         Console.WriteLine(
             $"Generated {funds.Count} active schemes.");
 
@@ -216,27 +259,26 @@ public class AmfiFundDataService
             $"Active cutoff: {activeDateCutoff:dd-MMM-yyyy}");
 
         Console.WriteLine(
+            $"Funds with Category: {categoryCount}");
+
+        Console.WriteLine(
+            $"Funds with SubCategory: {subCategoryCount}");
+
+        Console.WriteLine(
+            $"Distinct Categories: {distinctCategories}");
+
+        Console.WriteLine(
+            $"Distinct SubCategories: {distinctSubCategories}");
+
+        Console.WriteLine(
             $"Output: {_jsonFilePath}");
-    }
-
-    // -------------------------------------------------------------
-    // CATEGORY HEADER DETECTION
-    // -------------------------------------------------------------
-
-    private static bool IsCategoryHeader(string line)
-    {
-        var openParen = line.IndexOf('(');
-        var closeParen = line.LastIndexOf(')');
-
-        return openParen > 0 &&
-               closeParen > openParen;
     }
 
     // -------------------------------------------------------------
     // CATEGORY / SUB-CATEGORY PARSING
     // -------------------------------------------------------------
 
-    private static void ParseCategoryHeader(
+    private static bool TryParseCategoryHeader(
         string header,
         out string category,
         out string subCategory)
@@ -247,27 +289,37 @@ public class AmfiFundDataService
         var openParen = header.IndexOf('(');
         var closeParen = header.LastIndexOf(')');
 
-        if (openParen < 0 || closeParen <= openParen)
-            return;
+        if (openParen <= 0 ||
+            closeParen <= openParen)
+        {
+            return false;
+        }
 
         var categoryText = header[
             (openParen + 1)..closeParen
         ].Trim();
 
         if (string.IsNullOrWhiteSpace(categoryText))
-            return;
+            return false;
 
-        var separatorIndex = categoryText.IndexOf(" - ");
+        var separatorIndex = categoryText.IndexOf(
+            " - ",
+            StringComparison.Ordinal);
 
         if (separatorIndex >= 0)
         {
             category = categoryText[..separatorIndex].Trim();
-            subCategory = categoryText[(separatorIndex + 3)..].Trim();
+
+            subCategory = categoryText[
+                (separatorIndex + 3)..
+            ].Trim();
+
+            return !string.IsNullOrWhiteSpace(category);
         }
-        else
-        {
-            category = categoryText;
-        }
+
+        category = categoryText;
+
+        return true;
     }
 
     // -------------------------------------------------------------
@@ -356,31 +408,14 @@ public class AmfiFundDataService
         return funds
             .Where(f =>
                 NormalizeSearchTerm(f.FundHouse)
-                    .Contains(search, StringComparison.OrdinalIgnoreCase))
+                    .Contains(
+                        search,
+                        StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 
     // -------------------------------------------------------------
     // GENERAL SEARCH
-    // -------------------------------------------------------------
-    //
-    // Searches:
-    //   - Fund House
-    //   - Scheme Name
-    //   - Category
-    //   - Sub-Category
-    //
-    // This allows searches such as:
-    //   ICICI
-    //   HDFC
-    //   Flexi
-    //   Flexi Cap
-    //   Large Cap
-    //   Small Cap
-    //   Equity Scheme
-    //
-    // The complete matching set is returned.
-    // No 25-result limit is applied here.
     // -------------------------------------------------------------
 
     public async Task<List<AmfiFund>> SearchFundsAsync(string query)
@@ -405,7 +440,7 @@ public class AmfiFundDataService
     // LOAD LOCAL FUND CATALOGUE
     // -------------------------------------------------------------
 
-    private async Task<List<AmfiFund>> LoadFundsAsync()
+    public async Task<List<AmfiFund>> LoadFundsAsync()
     {
         if (!File.Exists(_jsonFilePath))
         {

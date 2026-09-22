@@ -318,5 +318,212 @@ namespace InvestmentPlanner.Api.Services
 
             return eligible;
         }
+
+        /// <summary>
+/// Returns all available filter values from the local AMFI catalogue.
+/// This does not call MFAPI.
+/// </summary>
+public async Task<FilterOptions> GetFilterOptionsAsync()
+{
+    var funds = await _amfiFundDataService.LoadFundsAsync();
+
+    return new FilterOptions
+    {
+        FundHouses = funds
+            .Where(f => !string.IsNullOrWhiteSpace(f.FundHouse))
+            .Select(f => f.FundHouse.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList(),
+
+        Categories = funds
+            .Where(f => !string.IsNullOrWhiteSpace(f.Category))
+            .Select(f => f.Category.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList(),
+
+        SubCategories = funds
+            .Where(f => !string.IsNullOrWhiteSpace(f.SubCategory))
+            .Select(f => f.SubCategory.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList(),
+
+        Plans = new List<string>
+        {
+            "Direct",
+            "Regular"
+        },
+
+        Options = new List<string>
+        {
+            "Growth",
+            "IDCW",
+            "Other"
+        }
+    };
+}
+
+/// <summary>
+/// Filters the local AMFI catalogue.
+/// No analytics or MFAPI calls are made here.
+/// </summary>
+public async Task<List<AnalyticsApiResponse>> FilterFundsAsync(
+    FundFilterRequest request)
+{
+    var funds =
+        await _amfiFundDataService.LoadFundsAsync();
+
+    if (request.FundHouses.Count > 0)
+    {
+        var selected = new HashSet<string>(
+            request.FundHouses,
+            StringComparer.OrdinalIgnoreCase);
+
+        funds = funds
+            .Where(f => selected.Contains(f.FundHouse))
+            .ToList();
+    }
+
+    if (request.Categories.Count > 0)
+    {
+        var selected = new HashSet<string>(
+            request.Categories,
+            StringComparer.OrdinalIgnoreCase);
+
+        funds = funds
+            .Where(f => selected.Contains(f.Category))
+            .ToList();
+    }
+
+    if (request.SubCategories.Count > 0)
+    {
+        var selected = new HashSet<string>(
+            request.SubCategories,
+            StringComparer.OrdinalIgnoreCase);
+
+        funds = funds
+            .Where(f => selected.Contains(f.SubCategory))
+            .ToList();
+    }
+
+    if (request.Plans.Count > 0)
+    {
+        var selected = new HashSet<string>(
+            request.Plans,
+            StringComparer.OrdinalIgnoreCase);
+
+        funds = funds
+            .Where(f => selected.Contains(f.Plan))
+            .ToList();
+    }
+
+    if (request.Options.Count > 0)
+{
+    var selected = new HashSet<string>(
+        request.Options,
+        StringComparer.OrdinalIgnoreCase);
+
+    funds = funds
+        .Where(f =>
+            selected.Contains(
+                NormalizeFilterOption(f.Option)))
+        .ToList();
+}
+
+    // Convert the filtered AMFI records into the same
+    // analytics response used by normal search.
+    var schemes = funds
+        .Select(f =>
+        {
+            if (!int.TryParse(
+                    f.SchemeCode,
+                    out var schemeCode))
+            {
+                return null;
+            }
+
+            return new Scheme
+            {
+                SchemeCode = schemeCode,
+                SchemeName = f.SchemeName
+            };
+        })
+        .Where(s => s != null)
+        .Select(s => s!)
+        .GroupBy(s => s.SchemeCode)
+        .Select(g => g.First())
+        .ToList();
+
+    if (schemes.Count == 0)
+    {
+        return new List<AnalyticsApiResponse>();
+    }
+
+    var analyticsTasks = schemes
+        .Select(s =>
+            _analyticsService.BuildAnalyticsAsync(
+                s.SchemeCode,
+                s.SchemeName))
+        .ToList();
+
+    try
+    {
+        var results =
+            await Task.WhenAll(analyticsTasks);
+
+        return results
+            .Where(r => r != null)
+            .Select(r => r!)
+            .ToList();
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(
+            ex,
+            "Error building analytics for filtered funds");
+
+        return new List<AnalyticsApiResponse>();
+    }
+}
+
+private static string NormalizeFilterOption(string? option)
+{
+    if (string.IsNullOrWhiteSpace(option))
+        return "Other";
+
+    var value = option.Trim();
+
+    if (value.Equals(
+        "Growth",
+        StringComparison.OrdinalIgnoreCase))
+    {
+        return "Growth";
+    }
+
+    if (
+        value.Equals(
+            "IDCW",
+            StringComparison.OrdinalIgnoreCase) ||
+
+        value.Contains(
+            "IDCW",
+            StringComparison.OrdinalIgnoreCase) ||
+
+        value.Contains(
+            "Dividend",
+            StringComparison.OrdinalIgnoreCase) ||
+
+        value.Contains(
+            "Income Distribution",
+            StringComparison.OrdinalIgnoreCase)
+    )
+    {
+        return "IDCW";
+    }
+
+    return "Other";
+}
     }
 }

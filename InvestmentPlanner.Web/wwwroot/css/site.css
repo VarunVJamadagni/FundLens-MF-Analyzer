@@ -429,6 +429,42 @@ h3 {
     color: var(--fl-ink);
 }
 
+.fl-filters-apply {
+    width: 100%;
+    padding: 10px 16px;
+    margin-bottom: 10px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #111827;
+    color: #ffffff;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background-color 0.2s ease,
+        transform 0.1s ease,
+        box-shadow 0.2s ease;
+}
+
+.fl-filters-apply:hover {
+    background: #1f2937;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.fl-filters-apply:active {
+    transform: translateY(1px);
+}
+
+.fl-filters-apply:focus-visible {
+    outline: 2px solid #111827;
+    outline-offset: 2px;
+}
+
 /* =========================================================
    RESULTS
    ========================================================= */
