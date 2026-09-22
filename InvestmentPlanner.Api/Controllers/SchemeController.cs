@@ -1,5 +1,6 @@
 using InvestmentPlanner.Api.Models;
 using InvestmentPlanner.Api.Services;
+using InvestmentPlanner.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InvestmentPlanner.Api.Controllers
@@ -120,5 +121,33 @@ public async Task<ActionResult<List<AnalyticsApiResponse>>> Filter(
                 return StatusCode(500, new { message = "Unable to retrieve eligible funds at this time. Please try again later." });
             }
         }
+
+        [HttpGet("top-performing")]
+public async Task<ActionResult<TopPerformingFundsResponse>>
+    TopPerforming()
+{
+    try
+    {
+        var results =
+            await _schemeService
+                .GetTopPerformingFundsAsync();
+
+        return Ok(results);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(
+            ex,
+            "Error fetching top-performing funds");
+
+        return StatusCode(
+            500,
+            new
+            {
+                message =
+                    "Unable to retrieve top-performing funds."
+            });
+    }
+}
     }
 }

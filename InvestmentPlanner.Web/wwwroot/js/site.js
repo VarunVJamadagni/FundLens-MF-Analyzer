@@ -1,13 +1,14 @@
 (function () {
     "use strict";
 
+
+    /* =========================================================
+       ELEMENTS
+       ========================================================= */
+
     var searchInput =
         document.getElementById("fl-search-input");
 
-    /*
-     * This file is loaded on every page.
-     * Only run the fund-list logic when the search input exists.
-     */
     if (!searchInput) {
         return;
     }
@@ -36,50 +37,77 @@
     var cardTemplate =
         document.getElementById("fl-fund-card-template");
 
+
+    /* =========================================================
+       TOP PERFORMING FUNDS
+       ========================================================= */
+
+    var topPerformingSection =
+        document.getElementById("fl-top-performing");
+
+    var topPerformingLoading =
+        document.getElementById("fl-top-performing-loading");
+
+    var topPerformingEmpty =
+        document.getElementById("fl-top-performing-empty");
+
+    var topThreeGrid =
+        document.getElementById("fl-top-three-grid");
+
+    var topFiveGrid =
+        document.getElementById("fl-top-five-grid");
+
+    var topTenGrid =
+        document.getElementById("fl-top-ten-grid");
+
+
+    /* =========================================================
+       FILTER BUTTONS
+       ========================================================= */
+
     var filtersApplyBtn =
         document.getElementById("fl-filters-apply");
 
     var filtersClearBtn =
         document.getElementById("fl-filters-clear");
 
+
+    /* =========================================================
+       FILTER GROUPS
+       ========================================================= */
+
     var filterGroups = {
-        plan: document.getElementById("fl-filter-plan"),
-        option: document.getElementById("fl-filter-option"),
-        amc: document.getElementById("fl-filter-amc"),
-        category: document.getElementById("fl-filter-category"),
-        subcategory: document.getElementById("fl-filter-subcategory")
+        plan:
+            document.getElementById("fl-filter-plan"),
+
+        option:
+            document.getElementById("fl-filter-option"),
+
+        amc:
+            document.getElementById("fl-filter-amc"),
+
+        category:
+            document.getElementById("fl-filter-category"),
+
+        subcategory:
+            document.getElementById("fl-filter-subcategory")
     };
 
 
-    /*
-     * ---------------------------------------------------------
-     * STATE
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       STATE
+       ========================================================= */
 
-    /*
-     * All funds returned by the current search/filter operation.
-     */
     var currentFunds = [];
 
-    /*
-     * Current page for client-side pagination.
-     */
     var currentPage = 1;
 
-    /*
-     * Number of funds displayed per page.
-     */
     var pageSize = 15;
 
     var debounceTimer = null;
 
     var activeRequestToken = 0;
 
-    /*
-     * Session storage key used to restore the user's
-     * search/filter/page state after opening a fund.
-     */
     var listStateKey =
         "fundLensListState";
 
@@ -87,20 +115,77 @@
         "fundLensReturnToFunds";
 
 
+    /* =========================================================
+       TOP PERFORMING VISIBILITY
+       ========================================================= */
+
+    function showTopPerforming() {
+
+        if (!topPerformingSection) {
+            return;
+        }
+
+        topPerformingSection.hidden = false;
+    }
+
+
+    function hideTopPerforming() {
+
+        if (!topPerformingSection) {
+            return;
+        }
+
+        topPerformingSection.hidden = true;
+    }
+
+
     /*
-     * ---------------------------------------------------------
-     * COMMON UI HELPERS
-     * ---------------------------------------------------------
+     * The Top Performing section belongs only to the
+     * initial landing state.
+     *
+     * If there is a search query or any selected filter,
+     * it must remain hidden.
      */
 
+    function updateTopPerformingVisibility() {
+
+        var searchValue =
+            searchInput.value.trim();
+
+        var filterRequest =
+            getFilterRequest();
+
+        var filtersSelected =
+            hasSelectedFilters(filterRequest);
+
+        if (
+            searchValue === "" &&
+            !filtersSelected &&
+            currentFunds.length === 0
+        ) {
+            showTopPerforming();
+        }
+        else {
+            hideTopPerforming();
+        }
+    }
+
+
+    /* =========================================================
+       COMMON UI HELPERS
+       ========================================================= */
+
     function setLoading(isLoading) {
+
         if (!resultsLoading) {
             return;
         }
 
-        resultsLoading.hidden = !isLoading;
+        resultsLoading.hidden =
+            !isLoading;
 
         if (isLoading) {
+
             resultsGrid.innerHTML = "";
 
             resultsEmpty.hidden = true;
@@ -109,7 +194,9 @@
 
 
     function setStatus(text) {
+
         if (searchStatus) {
+
             searchStatus.textContent =
                 text || "";
         }
@@ -117,42 +204,51 @@
 
 
     async function fetchJson(url) {
+
         var response =
-            await fetch(url, {
-                headers: {
-                    "Accept": "application/json"
+            await fetch(
+                url,
+                {
+                    method: "GET",
+
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    },
+
+                    cache: "no-store"
                 }
-            });
+            );
+
 
         if (!response.ok) {
+
             throw new Error(
                 "Request failed with status " +
-                response.status
+                response.status +
+                " for " +
+                url
             );
         }
+
 
         return response.json();
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * FILTER OPTIONS
-     * ---------------------------------------------------------
-     *
-     * Loaded from:
-     *
-     *     GET ?handler=FilterOptions
-     *
-     * This is used by the landing-page filter UI.
-     */
+    /* =========================================================
+       FILTER OPTIONS
+       ========================================================= */
 
     async function loadFilterOptions() {
+
         try {
+
             var data =
                 await fetchJson(
                     "?handler=FilterOptions"
                 );
+
 
             buildCheckboxOptions(
                 filterGroups.plan,
@@ -164,6 +260,7 @@
                 "No plan data available."
             );
 
+
             buildCheckboxOptions(
                 filterGroups.option,
 
@@ -173,6 +270,7 @@
 
                 "No option data available."
             );
+
 
             buildCheckboxOptions(
                 filterGroups.amc,
@@ -184,6 +282,7 @@
                 "No AMC data available."
             );
 
+
             buildCheckboxOptions(
                 filterGroups.category,
 
@@ -194,6 +293,7 @@
                 "No category data available."
             );
 
+
             buildCheckboxOptions(
                 filterGroups.subcategory,
 
@@ -203,15 +303,19 @@
 
                 "No sub-category data available."
             );
+
         }
         catch (err) {
+
             console.error(
                 "Failed to load filter options:",
                 err
             );
 
+
             Object.keys(filterGroups).forEach(
                 function (key) {
+
                     var container =
                         filterGroups[key];
 
@@ -219,24 +323,28 @@
                         return;
                     }
 
+
                     container.innerHTML = "";
 
+
                     var empty =
-                        document.createElement(
-                            "p"
-                        );
+                        document.createElement("p");
+
 
                     empty.className =
                         "fl-filter-empty";
 
+
                     empty.textContent =
                         "Unable to load filter options.";
+
 
                     container.appendChild(
                         empty
                     );
                 }
             );
+
 
             setStatus(
                 "Unable to load filters. Please refresh the page."
@@ -245,14 +353,14 @@
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * FILTER REQUEST
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       FILTER REQUEST
+       ========================================================= */
 
     function getFilterRequest() {
+
         return {
+
             fundHouses:
                 getCheckedValues(
                     filterGroups.amc
@@ -282,82 +390,100 @@
 
 
     function hasSelectedFilters(request) {
+
         return (
+
             request.fundHouses.length > 0 ||
+
             request.categories.length > 0 ||
+
             request.subCategories.length > 0 ||
+
             request.plans.length > 0 ||
+
             request.options.length > 0
         );
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * APPLY FILTERS
-     * ---------------------------------------------------------
-     *
-     * Landing page:
-     *
-     *     Select filters
-     *          ↓
-     *     No API request
-     *          ↓
-     *     Click Apply Filters
-     *          ↓
-     *     POST ?handler=Filter
-     */
+    /* =========================================================
+       APPLY FILTERS
+       ========================================================= */
 
     async function applyFilters() {
+
         var request =
             getFilterRequest();
 
+
         if (!hasSelectedFilters(request)) {
+
             setStatus(
                 "Select at least one filter and click Apply Filters."
             );
 
+            /*
+             * No actual filter operation has been performed.
+             * Keep the landing state visible.
+             */
+
+            updateTopPerformingVisibility();
+
             return;
         }
+
+
+        /*
+         * User is now doing filter-based searching.
+         * Hide Top Performing immediately.
+         */
+
+        hideTopPerforming();
+
 
         var token =
             ++activeRequestToken;
 
+
         currentPage = 1;
+
 
         resultsTitle.textContent =
             "Filtered Funds";
 
+
         setLoading(true);
+
 
         setStatus(
             "Applying filters..."
         );
 
+
         try {
-            /*
-             * Razor Pages anti-forgery token.
-             *
-             * Index.cshtml contains:
-             *
-             * @Html.AntiForgeryToken()
-             *
-             * We send that token in the request header.
-             */
+
             var tokenElement =
                 document.querySelector(
                     'input[name="__RequestVerificationToken"]'
                 );
 
+
             var headers = {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
+
+                "Accept":
+                    "application/json",
+
+                "Content-Type":
+                    "application/json"
             };
 
+
             if (tokenElement) {
+
                 headers["RequestVerificationToken"] =
                     tokenElement.value;
             }
+
 
             var response =
                 await fetch(
@@ -367,233 +493,296 @@
 
                         headers: headers,
 
-                        body: JSON.stringify(
-                            request
-                        )
+                        body:
+                            JSON.stringify(
+                                request
+                            )
                     }
                 );
 
+
             if (!response.ok) {
+
                 throw new Error(
                     "Request failed with status " +
                     response.status
                 );
             }
 
+
             var data =
                 await response.json();
+
 
             if (token !== activeRequestToken) {
                 return;
             }
+
 
             currentFunds =
                 Array.isArray(data)
                     ? data
                     : [];
 
+
             if (currentFunds.length === 0) {
+
                 setStatus(
                     "No funds matched the selected filters."
                 );
+
             }
             else {
+
                 setStatus("");
             }
 
+
             saveListState();
 
+
             renderResults();
+
         }
         catch (err) {
+
             if (token !== activeRequestToken) {
                 return;
             }
+
 
             console.error(
                 "Failed to apply filters:",
                 err
             );
 
+
             currentFunds = [];
 
-            resultsGrid.innerHTML = "";
 
-            resultsEmpty.hidden = false;
+            resultsGrid.innerHTML =
+                "";
 
-            resultsCount.textContent = "";
+
+            resultsEmpty.hidden =
+                false;
+
+
+            resultsCount.textContent =
+                "";
+
 
             removePagination();
+
 
             setStatus(
                 "Filtering failed. Please try again."
             );
+
         }
         finally {
+
             if (token === activeRequestToken) {
+
                 setLoading(false);
             }
         }
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * SEARCH
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       SEARCH
+       ========================================================= */
 
     async function runSearch(
         query,
         restoreState
     ) {
+
+        /*
+         * Searching means we are no longer on the
+         * landing page.
+         */
+
+        hideTopPerforming();
+
+
         var token =
             ++activeRequestToken;
 
+
         currentPage = 1;
+
 
         resultsTitle.textContent =
             "Search Results";
 
-        searchClearBtn.hidden = false;
+
+        searchClearBtn.hidden =
+            false;
+
 
         setLoading(true);
+
 
         setStatus(
             "Searching..."
         );
 
+
         try {
+
             var data =
                 await fetchJson(
                     "?handler=Search&query=" +
                     encodeURIComponent(query)
                 );
 
+
             if (token !== activeRequestToken) {
                 return;
             }
+
 
             currentFunds =
                 Array.isArray(data)
                     ? data
                     : [];
 
-            /*
-             * Search results rebuild:
-             *
-             * AMC
-             * Category
-             * Sub-Category
-             *
-             * Plan and Option remain based on the
-             * complete catalogue.
-             */
+
             rebuildDynamicFilters(
                 currentFunds
             );
 
-            /*
-             * Restore filters and page only when returning
-             * from an analytics page.
-             */
+
             if (restoreState) {
+
                 applySavedFilterState(
                     restoreState
                 );
+
 
                 currentPage =
                     Number(
                         restoreState.page
                     ) || 1;
 
+
                 if (currentPage < 1) {
                     currentPage = 1;
                 }
 
+
                 var totalPages =
                     Math.max(
                         1,
+
                         Math.ceil(
                             getFilteredFunds().length /
                             pageSize
                         )
                     );
 
+
                 if (currentPage > totalPages) {
+
                     currentPage =
                         totalPages;
                 }
             }
 
+
             if (currentFunds.length === 0) {
+
                 setStatus(
                     "No funds matched your search."
                 );
+
             }
             else {
+
                 setStatus("");
             }
 
+
             renderResults();
+
         }
         catch (err) {
+
             if (token !== activeRequestToken) {
                 return;
             }
+
 
             console.error(
                 "Search failed:",
                 err
             );
 
+
             currentFunds = [];
+
 
             rebuildDynamicFilters(
                 currentFunds
             );
 
-            resultsGrid.innerHTML = "";
 
-            resultsEmpty.hidden = false;
+            resultsGrid.innerHTML =
+                "";
 
-            resultsCount.textContent = "";
+
+            resultsEmpty.hidden =
+                false;
+
+
+            resultsCount.textContent =
+                "";
+
 
             removePagination();
+
 
             setStatus(
                 "Search failed. Please try again."
             );
+
         }
         finally {
+
             if (token === activeRequestToken) {
+
                 setLoading(false);
             }
         }
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * FILTERS
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       FILTERS
+       ========================================================= */
 
     function getCheckedValues(
         container
     ) {
+
         if (!container) {
             return [];
         }
+
 
         var boxes =
             container.querySelectorAll(
                 "input[type=checkbox]:checked"
             );
 
+
         return Array.prototype.map.call(
             boxes,
+
             function (box) {
+
                 return box.value;
             }
         );
@@ -603,25 +792,30 @@
     function fundMatchesFilters(
         fund
     ) {
+
         var planChecked =
             getCheckedValues(
                 filterGroups.plan
             );
+
 
         var optionChecked =
             getCheckedValues(
                 filterGroups.option
             );
 
+
         var amcChecked =
             getCheckedValues(
                 filterGroups.amc
             );
 
+
         var categoryChecked =
             getCheckedValues(
                 filterGroups.category
             );
+
 
         var subCategoryChecked =
             getCheckedValues(
@@ -635,6 +829,7 @@
                 fund.plan
             ) === -1
         ) {
+
             return false;
         }
 
@@ -645,6 +840,7 @@
                 fund.option
             ) === -1
         ) {
+
             return false;
         }
 
@@ -655,6 +851,7 @@
                 fund.fundHouse
             ) === -1
         ) {
+
             return false;
         }
 
@@ -665,6 +862,7 @@
                 fund.schemeCategory
             ) === -1
         ) {
+
             return false;
         }
 
@@ -675,6 +873,7 @@
                 fund.schemeSubCategory
             ) === -1
         ) {
+
             return false;
         }
 
@@ -684,6 +883,7 @@
 
 
     function getFilteredFunds() {
+
         return currentFunds.filter(
             fundMatchesFilters
         );
@@ -691,39 +891,46 @@
 
 
     function metricClass(value) {
+
         if (
             !value ||
             value === "N/A"
         ) {
+
             return "fl-na";
         }
 
+
         if (
-            value.indexOf("-") === 0
+            String(value).indexOf("-") === 0
         ) {
+
             return "fl-negative";
         }
+
 
         return "fl-positive";
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * RESULTS
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       RESULTS
+       ========================================================= */
 
     function renderResults() {
+
         var filtered =
             getFilteredFunds();
+
 
         var totalCount =
             filtered.length;
 
+
         var totalPages =
             Math.max(
                 1,
+
                 Math.ceil(
                     totalCount /
                     pageSize
@@ -732,26 +939,35 @@
 
 
         if (currentPage > totalPages) {
+
             currentPage =
                 totalPages;
         }
 
 
-        resultsGrid.innerHTML = "";
+        resultsGrid.innerHTML =
+            "";
 
 
         if (totalCount === 0) {
-            resultsEmpty.hidden = false;
 
-            resultsCount.textContent = "";
+            resultsEmpty.hidden =
+                false;
+
+
+            resultsCount.textContent =
+                "";
+
 
             removePagination();
+
 
             return;
         }
 
 
-        resultsEmpty.hidden = true;
+        resultsEmpty.hidden =
+            true;
 
 
         var startIndex =
@@ -793,6 +1009,7 @@
 
         pageFunds.forEach(
             function (fund) {
+
                 var node =
                     cardTemplate.content.cloneNode(
                         true
@@ -812,13 +1029,11 @@
                     );
 
 
-                /*
-                 * Save list state before opening
-                 * the analytics page.
-                 */
                 anchor.addEventListener(
                     "click",
+
                     function () {
+
                         saveListState();
                     }
                 );
@@ -926,13 +1141,21 @@
         selector,
         value
     ) {
+
         var element =
             node.querySelector(
                 selector
             );
 
+
+        if (!element) {
+            return;
+        }
+
+
         element.textContent =
             value || "N/A";
+
 
         element.classList.add(
             metricClass(value)
@@ -940,16 +1163,16 @@
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * PAGINATION
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       PAGINATION
+       ========================================================= */
 
     function renderPagination(
         totalPages
     ) {
+
         removePagination();
+
 
         if (totalPages <= 1) {
             return;
@@ -961,34 +1184,38 @@
                 "div"
             );
 
+
         pagination.id =
             "fl-pagination";
+
 
         pagination.className =
             "fl-pagination";
 
 
-        /*
-         * Previous button
-         */
         var previousButton =
             document.createElement(
                 "button"
             );
 
+
         previousButton.type =
             "button";
+
 
         previousButton.className =
             "fl-pagination-button " +
             "fl-pagination-prev";
 
+
         previousButton.innerHTML =
             '<span aria-hidden="true">←</span>' +
             '<span>Previous</span>';
 
+
         previousButton.disabled =
             currentPage === 1;
+
 
         previousButton.setAttribute(
             "aria-label",
@@ -998,13 +1225,19 @@
 
         previousButton.addEventListener(
             "click",
+
             function () {
+
                 if (currentPage > 1) {
+
                     currentPage--;
+
 
                     saveListState();
 
+
                     renderResults();
+
 
                     scrollToResults();
                 }
@@ -1017,9 +1250,6 @@
         );
 
 
-        /*
-         * Page numbers
-         */
         var pages =
             getPageNumbers(
                 totalPages
@@ -1028,21 +1258,27 @@
 
         pages.forEach(
             function (page) {
+
                 if (page === "...") {
+
                     var ellipsis =
                         document.createElement(
                             "span"
                         );
 
+
                     ellipsis.className =
                         "fl-pagination-ellipsis";
+
 
                     ellipsis.textContent =
                         "…";
 
+
                     pagination.appendChild(
                         ellipsis
                     );
+
 
                     return;
                 }
@@ -1053,8 +1289,10 @@
                         "button"
                     );
 
+
                 pageButton.type =
                     "button";
+
 
                 pageButton.className =
                     "fl-pagination-button" +
@@ -1063,6 +1301,7 @@
                             ? " active"
                             : ""
                     );
+
 
                 pageButton.textContent =
                     page;
@@ -1078,6 +1317,7 @@
                 if (
                     page === currentPage
                 ) {
+
                     pageButton.setAttribute(
                         "aria-current",
                         "page"
@@ -1087,13 +1327,18 @@
 
                 pageButton.addEventListener(
                     "click",
+
                     function () {
+
                         currentPage =
                             page;
 
+
                         saveListState();
 
+
                         renderResults();
+
 
                         scrollToResults();
                     }
@@ -1107,27 +1352,29 @@
         );
 
 
-        /*
-         * Next button
-         */
         var nextButton =
             document.createElement(
                 "button"
             );
 
+
         nextButton.type =
             "button";
+
 
         nextButton.className =
             "fl-pagination-button " +
             "fl-pagination-next";
 
+
         nextButton.innerHTML =
             '<span>Next</span>' +
             '<span aria-hidden="true">→</span>';
 
+
         nextButton.disabled =
             currentPage === totalPages;
+
 
         nextButton.setAttribute(
             "aria-label",
@@ -1137,16 +1384,22 @@
 
         nextButton.addEventListener(
             "click",
+
             function () {
+
                 if (
                     currentPage <
                     totalPages
                 ) {
+
                     currentPage++;
+
 
                     saveListState();
 
+
                     renderResults();
+
 
                     scrollToResults();
                 }
@@ -1166,6 +1419,7 @@
 
 
         if (resultsSection) {
+
             resultsSection.appendChild(
                 pagination
             );
@@ -1176,17 +1430,21 @@
     function getPageNumbers(
         totalPages
     ) {
+
         var pages = [];
 
 
         if (totalPages <= 7) {
+
             for (
                 var i = 1;
                 i <= totalPages;
                 i++
             ) {
+
                 pages.push(i);
             }
+
 
             return pages;
         }
@@ -1196,6 +1454,7 @@
 
 
         if (currentPage > 4) {
+
             pages.push("...");
         }
 
@@ -1219,6 +1478,7 @@
             page <= end;
             page++
         ) {
+
             pages.push(page);
         }
 
@@ -1227,6 +1487,7 @@
             currentPage <
             totalPages - 3
         ) {
+
             pages.push("...");
         }
 
@@ -1241,52 +1502,48 @@
 
 
     function removePagination() {
+
         var existing =
             document.getElementById(
                 "fl-pagination"
             );
 
+
         if (existing) {
+
             existing.remove();
         }
     }
 
 
     function scrollToResults() {
+
         var resultsSection =
             document.querySelector(
                 ".fl-results"
             );
 
+
         if (resultsSection) {
-            resultsSection.scrollIntoView({
-                behavior: "smooth",
-                block: "start"
-            });
+
+            resultsSection.scrollIntoView(
+                {
+                    behavior: "smooth",
+                    block: "start"
+                }
+            );
         }
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * DYNAMIC FILTERS
-     * ---------------------------------------------------------
-     *
-     * During a search:
-     *
-     * AMC
-     * Category
-     * Sub-Category
-     *
-     * are rebuilt from the search results.
-     *
-     * Plan and Option remain populated from the
-     * complete catalogue.
-     */
+    /* =========================================================
+       DYNAMIC FILTERS
+       ========================================================= */
 
     function rebuildDynamicFilters(
         funds
     ) {
+
         buildCheckboxOptions(
             filterGroups.amc,
 
@@ -1328,6 +1585,7 @@
         funds,
         propertyName
     ) {
+
         var seen = {};
 
         var values = [];
@@ -1335,6 +1593,7 @@
 
         funds.forEach(
             function (fund) {
+
                 var value =
                     fund[propertyName];
 
@@ -1343,7 +1602,10 @@
                     value &&
                     !seen[value]
                 ) {
-                    seen[value] = true;
+
+                    seen[value] =
+                        true;
+
 
                     values.push(
                         value
@@ -1355,6 +1617,7 @@
 
         values.sort(
             function (a, b) {
+
                 return a.localeCompare(
                     b,
                     undefined,
@@ -1376,41 +1639,45 @@
         values,
         emptyMessage
     ) {
+
         if (!container) {
             return;
         }
 
 
-        /*
-         * Keep existing selections where possible.
-         */
         var previouslyChecked =
             getCheckedValues(
                 container
             );
 
 
-        container.innerHTML = "";
+        container.innerHTML =
+            "";
 
 
         if (
             !values ||
             values.length === 0
         ) {
+
             var empty =
                 document.createElement(
                     "p"
                 );
 
+
             empty.className =
                 "fl-filter-empty";
+
 
             empty.textContent =
                 emptyMessage;
 
+
             container.appendChild(
                 empty
             );
+
 
             return;
         }
@@ -1418,6 +1685,7 @@
 
         values.forEach(
             function (value) {
+
                 var label =
                     document.createElement(
                         "label"
@@ -1443,6 +1711,7 @@
                         value
                     ) !== -1
                 ) {
+
                     input.checked =
                         true;
                 }
@@ -1450,29 +1719,40 @@
 
                 input.addEventListener(
                     "change",
+
                     function () {
-                        currentPage = 1;
+
+                        currentPage =
+                            1;
+
 
                         saveListState();
 
 
                         /*
-                         * Landing page:
+                         * The user has interacted with
+                         * filters. Do not show Top
+                         * Performing while filters are
+                         * selected.
                          *
-                         *     checkbox
-                         *          ↓
-                         *     no API request
-                         *
-                         * Search/filter results:
-                         *
-                         *     checkbox
-                         *          ↓
-                         *     immediate client filtering
+                         * We do not run the server-side
+                         * filter here. The Apply button
+                         * remains responsible for that.
                          */
+
+                        if (
+                            getFilterRequest()
+                        ) {
+
+                            updateTopPerformingVisibility();
+                        }
+
+
                         if (
                             currentFunds.length > 0 ||
                             searchInput.value.trim() !== ""
                         ) {
+
                             renderResults();
                         }
                     }
@@ -1486,7 +1766,8 @@
 
                 label.appendChild(
                     document.createTextNode(
-                        " " + value
+                        " " +
+                        value
                     )
                 );
 
@@ -1499,13 +1780,12 @@
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * FILTER SEARCH BOXES
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       FILTER SEARCH BOXES
+       ========================================================= */
 
     function wireFilterSearchBoxes() {
+
         var searchBoxes =
             document.querySelectorAll(
                 ".fl-filter-search"
@@ -1514,9 +1794,12 @@
 
         searchBoxes.forEach(
             function (box) {
+
                 box.addEventListener(
                     "input",
+
                     function () {
+
                         var targetContainer =
                             document.getElementById(
                                 box.getAttribute(
@@ -1544,6 +1827,7 @@
 
                         labels.forEach(
                             function (label) {
+
                                 var text =
                                     label.textContent
                                         .trim()
@@ -1566,30 +1850,28 @@
     }
 
 
-    /*
-     * Plan and Option are now populated dynamically.
-     */
     function wireStaticFilterGroups() {
         /*
-         * Intentionally empty.
+         * Reserved for static filter-group behaviour.
          */
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * CLEAR FILTERS
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       CLEAR FILTERS
+       ========================================================= */
 
     function clearAllFilters() {
+
         document
             .querySelectorAll(
                 "#fl-filters input[type=checkbox]"
             )
             .forEach(
                 function (box) {
-                    box.checked = false;
+
+                    box.checked =
+                        false;
                 }
             );
 
@@ -1600,7 +1882,9 @@
             )
             .forEach(
                 function (box) {
-                    box.value = "";
+
+                    box.value =
+                        "";
                 }
             );
 
@@ -1611,55 +1895,77 @@
             )
             .forEach(
                 function (label) {
+
                     label.style.display =
                         "";
                 }
             );
 
 
-        currentPage = 1;
+        currentPage =
+            1;
+
 
         saveListState();
 
 
         /*
-         * If results have already been loaded,
-         * show all loaded results.
-         *
-         * On the empty landing page, don't call
-         * the API and don't render anything.
+         * If a search is still active, we remain in
+         * search mode and therefore keep Top Performing
+         * hidden.
          */
-        if (currentFunds.length > 0) {
-            renderResults();
+
+        if (
+            searchInput.value.trim() !== ""
+        ) {
+
+            hideTopPerforming();
         }
         else {
+
+            /*
+             * No search and no filters means we are
+             * back on the landing state.
+             */
+
+            currentFunds = [];
+
+
             resultsGrid.innerHTML =
                 "";
+
 
             resultsCount.textContent =
                 "";
 
+
             resultsEmpty.hidden =
                 true;
 
+
             removePagination();
+
 
             resultsTitle.textContent =
                 "Search Funds";
 
+
             setStatus("");
+
+
+            showTopPerforming();
         }
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * SAVE / RESTORE LIST STATE
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       SAVE / RESTORE LIST STATE
+       ========================================================= */
 
     function saveListState() {
+
         var state = {
+
             query:
                 searchInput.value.trim(),
 
@@ -1667,6 +1973,7 @@
                 currentPage,
 
             filters: {
+
                 plan:
                     getCheckedValues(
                         filterGroups.plan
@@ -1696,22 +2003,29 @@
 
 
         try {
+
             sessionStorage.setItem(
                 listStateKey,
-                JSON.stringify(state)
+
+                JSON.stringify(
+                    state
+                )
             );
+
         }
         catch (err) {
             /*
-             * Session storage is only an enhancement.
-             * Application continues to work if unavailable.
+             * sessionStorage can fail in private or
+             * restricted browser environments.
              */
         }
     }
 
 
     function getSavedListState() {
+
         try {
+
             var raw =
                 sessionStorage.getItem(
                     listStateKey
@@ -1726,8 +2040,10 @@
             return JSON.parse(
                 raw
             );
+
         }
         catch (err) {
+
             return null;
         }
     }
@@ -1736,10 +2052,12 @@
     function applySavedFilterState(
         state
     ) {
+
         if (
             !state ||
             !state.filters
         ) {
+
             return;
         }
 
@@ -1779,10 +2097,12 @@
         container,
         values
     ) {
+
         if (
             !container ||
             !Array.isArray(values)
         ) {
+
             return;
         }
 
@@ -1793,6 +2113,7 @@
             )
             .forEach(
                 function (box) {
+
                     box.checked =
                         values.indexOf(
                             box.value
@@ -1802,15 +2123,15 @@
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * SEARCH INPUT
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       SEARCH INPUT
+       ========================================================= */
 
     searchInput.addEventListener(
         "input",
+
         function () {
+
             var value =
                 searchInput.value.trim();
 
@@ -1820,25 +2141,36 @@
 
 
             if (debounceTimer) {
+
                 clearTimeout(
                     debounceTimer
                 );
             }
 
 
+            /*
+             * As soon as the user starts typing,
+             * Top Performing should disappear.
+             */
+
+            if (value !== "") {
+
+                hideTopPerforming();
+            }
+
+
             debounceTimer =
                 setTimeout(
                     function () {
-                        /*
-                         * Empty search:
-                         *
-                         * Return to landing-page
-                         * filter mode.
-                         */
-                        if (value === "") {
-                            currentFunds = [];
 
-                            currentPage = 1;
+                        if (value === "") {
+
+                            currentFunds =
+                                [];
+
+
+                            currentPage =
+                                1;
 
 
                             resultsTitle.textContent =
@@ -1860,23 +2192,28 @@
                             removePagination();
 
 
-                            /*
-                             * Reload complete filter
-                             * catalogue.
-                             */
                             loadFilterOptions();
 
 
                             setStatus("");
 
 
+                            /*
+                             * Empty search + no selected
+                             * filters = landing page.
+                             */
+
+                            updateTopPerformingVisibility();
+
+
                             try {
+
                                 sessionStorage.removeItem(
                                     listStateKey
                                 );
+
                             }
                             catch (err) {
-                                // Ignore storage errors.
                             }
 
 
@@ -1884,10 +2221,18 @@
                         }
 
 
+                        /*
+                         * Non-empty search.
+                         */
+
+                        hideTopPerforming();
+
+
                         runSearch(
                             value,
                             null
                         );
+
                     },
                     300
                 );
@@ -1895,25 +2240,29 @@
     );
 
 
-    /*
-     * ---------------------------------------------------------
-     * CLEAR SEARCH
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       CLEAR SEARCH
+       ========================================================= */
 
     searchClearBtn.addEventListener(
         "click",
+
         function () {
+
             searchInput.value =
                 "";
+
 
             searchClearBtn.hidden =
                 true;
 
 
-            currentFunds = [];
+            currentFunds =
+                [];
 
-            currentPage = 1;
+
+            currentPage =
+                1;
 
 
             resultsTitle.textContent =
@@ -1935,10 +2284,6 @@
             removePagination();
 
 
-            /*
-             * Return filter groups to
-             * complete catalogue.
-             */
             loadFilterOptions();
 
 
@@ -1946,13 +2291,22 @@
 
 
             try {
+
                 sessionStorage.removeItem(
                     listStateKey
                 );
+
             }
             catch (err) {
-                // Ignore storage errors.
             }
+
+
+            /*
+             * Clearing search returns to landing
+             * only if no filters are selected.
+             */
+
+            updateTopPerformingVisibility();
 
 
             searchInput.focus();
@@ -1960,13 +2314,12 @@
     );
 
 
-    /*
-     * ---------------------------------------------------------
-     * FILTER BUTTONS
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       FILTER BUTTONS
+       ========================================================= */
 
     if (filtersApplyBtn) {
+
         filtersApplyBtn.addEventListener(
             "click",
             applyFilters
@@ -1975,6 +2328,7 @@
 
 
     if (filtersClearBtn) {
+
         filtersClearBtn.addEventListener(
             "click",
             clearAllFilters
@@ -1982,11 +2336,496 @@
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * INITIALISE
-     * ---------------------------------------------------------
-     */
+    /* =========================================================
+       TOP PERFORMING FUNDS
+       ========================================================= */
+
+    async function loadTopPerformingFunds() {
+
+        if (!topPerformingSection) {
+            return;
+        }
+
+
+        try {
+
+            if (topPerformingLoading) {
+
+                topPerformingLoading.hidden =
+                    false;
+            }
+
+
+            if (topPerformingEmpty) {
+
+                topPerformingEmpty.hidden =
+                    true;
+            }
+
+
+            /*
+             * Clear previous cards before loading.
+             */
+
+            if (topThreeGrid) {
+                topThreeGrid.innerHTML = "";
+            }
+
+            if (topFiveGrid) {
+                topFiveGrid.innerHTML = "";
+            }
+
+            if (topTenGrid) {
+                topTenGrid.innerHTML = "";
+            }
+
+
+            /*
+             * This is the existing backend endpoint.
+             */
+
+            var data =
+                await fetchJson(
+                    "http://localhost:5001/api/Scheme/top-performing"
+                );
+
+
+            console.log(
+                "Top Performing Funds response:",
+                data
+            );
+
+
+            if (!data || typeof data !== "object") {
+
+                throw new Error(
+                    "Top Performing API returned invalid JSON."
+                );
+            }
+
+
+            /*
+             * ASP.NET Core normally serializes the
+             * properties as camelCase:
+             *
+             * threeYear
+             * fiveYear
+             * tenYear
+             */
+
+            var threeYear =
+                Array.isArray(data.threeYear)
+                    ? data.threeYear
+                    : [];
+
+
+            var fiveYear =
+                Array.isArray(data.fiveYear)
+                    ? data.fiveYear
+                    : [];
+
+
+            var tenYear =
+                Array.isArray(data.tenYear)
+                    ? data.tenYear
+                    : [];
+
+
+            /*
+             * If the server happens to return PascalCase,
+             * support that too.
+             */
+
+            if (
+                threeYear.length === 0 &&
+                Array.isArray(data.ThreeYear)
+            ) {
+
+                threeYear =
+                    data.ThreeYear;
+            }
+
+
+            if (
+                fiveYear.length === 0 &&
+                Array.isArray(data.FiveYear)
+            ) {
+
+                fiveYear =
+                    data.FiveYear;
+            }
+
+
+            if (
+                tenYear.length === 0 &&
+                Array.isArray(data.TenYear)
+            ) {
+
+                tenYear =
+                    data.TenYear;
+            }
+
+
+            renderTopPerformingPeriod(
+                topThreeGrid,
+                threeYear
+            );
+
+
+            renderTopPerformingPeriod(
+                topFiveGrid,
+                fiveYear
+            );
+
+
+            renderTopPerformingPeriod(
+                topTenGrid,
+                tenYear
+            );
+
+
+            /*
+             * Loading succeeded.
+             */
+
+            if (topPerformingLoading) {
+
+                topPerformingLoading.hidden =
+                    true;
+            }
+
+
+        }
+        catch (err) {
+
+            console.error(
+                "Failed to load top-performing funds:",
+                err
+            );
+
+
+            if (topPerformingLoading) {
+
+                topPerformingLoading.hidden =
+                    true;
+            }
+
+
+            if (topPerformingEmpty) {
+
+                topPerformingEmpty.hidden =
+                    false;
+            }
+
+
+            if (topThreeGrid) {
+
+                topThreeGrid.innerHTML =
+                    "";
+            }
+
+
+            if (topFiveGrid) {
+
+                topFiveGrid.innerHTML =
+                    "";
+            }
+
+
+            if (topTenGrid) {
+
+                topTenGrid.innerHTML =
+                    "";
+            }
+        }
+    }
+
+
+    function renderTopPerformingPeriod(
+        container,
+        funds
+    ) {
+
+        if (!container) {
+            return;
+        }
+
+
+        container.innerHTML =
+            "";
+
+
+        if (
+            !funds ||
+            funds.length === 0
+        ) {
+
+            var empty =
+                document.createElement(
+                    "p"
+                );
+
+
+            empty.className =
+                "fl-top-performing-period-empty";
+
+
+            empty.textContent =
+                "No qualifying funds available for this period.";
+
+
+            container.appendChild(
+                empty
+            );
+
+
+            return;
+        }
+
+
+        var fragment =
+            document.createDocumentFragment();
+
+
+        funds.forEach(
+            function (fund) {
+
+                var card =
+                    document.createElement(
+                        "a"
+                    );
+
+
+                card.className =
+                    "fl-top-fund-card";
+
+
+                /*
+                 * Support normal camelCase response.
+                 */
+
+                var schemeCode =
+                    fund.schemeCode;
+
+
+                var schemeName =
+                    fund.schemeName;
+
+
+                var fundHouse =
+                    fund.fundHouse;
+
+
+                var category =
+                    fund.category;
+
+
+                var subCategory =
+                    fund.subCategory;
+
+
+                var cagr =
+                    fund.cagr;
+
+
+                /*
+                 * Also support PascalCase response.
+                 */
+
+                if (
+                    schemeCode === undefined ||
+                    schemeCode === null
+                ) {
+
+                    schemeCode =
+                        fund.SchemeCode;
+                }
+
+
+                if (!schemeName) {
+
+                    schemeName =
+                        fund.SchemeName;
+                }
+
+
+                if (!fundHouse) {
+
+                    fundHouse =
+                        fund.FundHouse;
+                }
+
+
+                if (!category) {
+
+                    category =
+                        fund.Category;
+                }
+
+
+                if (!subCategory) {
+
+                    subCategory =
+                        fund.SubCategory;
+                }
+
+
+                if (!cagr) {
+
+                    cagr =
+                        fund.CAGR;
+                }
+
+
+                card.href =
+                    "/Analytics?schemeCode=" +
+                    encodeURIComponent(
+                        schemeCode
+                    );
+
+
+                card.setAttribute(
+                    "aria-label",
+
+                    "View analytics for " +
+                    (
+                        schemeName ||
+                        "fund"
+                    )
+                );
+
+
+                var categoryElement =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                categoryElement.className =
+                    "fl-top-fund-category";
+
+
+                categoryElement.textContent =
+                    category ||
+                    "Other";
+
+
+                var name =
+                    document.createElement(
+                        "h4"
+                    );
+
+
+                name.className =
+                    "fl-top-fund-name";
+
+
+                name.textContent =
+                    schemeName ||
+                    "Unknown Fund";
+
+
+                var subCategoryElement =
+                    document.createElement(
+                        "p"
+                    );
+
+
+                subCategoryElement.className =
+                    "fl-top-fund-subcategory";
+
+
+                subCategoryElement.textContent =
+                    subCategory ||
+                    "";
+
+
+                var details =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                details.className =
+                    "fl-top-fund-details";
+
+
+                var fundHouseElement =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                fundHouseElement.className =
+                    "fl-top-fund-house";
+
+
+                fundHouseElement.textContent =
+                    fundHouse ||
+                    "";
+
+
+                var cagrElement =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                cagrElement.className =
+                    "fl-top-fund-cagr";
+
+
+                cagrElement.textContent =
+                    cagr ||
+                    "N/A";
+
+
+                details.appendChild(
+                    fundHouseElement
+                );
+
+
+                details.appendChild(
+                    cagrElement
+                );
+
+
+                card.appendChild(
+                    categoryElement
+                );
+
+
+                card.appendChild(
+                    name
+                );
+
+
+                card.appendChild(
+                    subCategoryElement
+                );
+
+
+                card.appendChild(
+                    details
+                );
+
+
+                fragment.appendChild(
+                    card
+                );
+            }
+        );
+
+
+        container.appendChild(
+            fragment
+        );
+    }
+
+
+    /* =========================================================
+       INITIALISE
+       ========================================================= */
 
     wireFilterSearchBoxes();
 
@@ -1994,22 +2833,41 @@
 
 
     /*
-     * Populate all filter groups from the
-     * full AMFI catalogue.
+     * The page initially has:
+     *
+     * - no search
+     * - no selected filters
+     * - no search results
+     *
+     * Therefore this is the landing state.
      */
+
+    showTopPerforming();
+
+
     loadFilterOptions();
 
 
     /*
-     * ---------------------------------------------------------
-     * RESTORE FROM ANALYTICS
-     * ---------------------------------------------------------
+     * Load Top Performing once.
+     *
+     * It stays in the DOM but visibility is controlled
+     * separately by updateTopPerformingVisibility().
      */
 
-    var shouldRestore = false;
+    loadTopPerformingFunds();
+
+
+    /* =========================================================
+       RESTORE FROM ANALYTICS
+       ========================================================= */
+
+    var shouldRestore =
+        false;
 
 
     try {
+
         shouldRestore =
             sessionStorage.getItem(
                 returnToFundsKey
@@ -2017,17 +2875,22 @@
 
 
         if (shouldRestore) {
+
             sessionStorage.removeItem(
                 returnToFundsKey
             );
         }
+
     }
     catch (err) {
-        shouldRestore = false;
+
+        shouldRestore =
+            false;
     }
 
 
     if (shouldRestore) {
+
         var savedState =
             getSavedListState();
 
@@ -2036,6 +2899,15 @@
             savedState &&
             savedState.query
         ) {
+
+            /*
+             * Returning to an existing search means
+             * this is NOT the landing page.
+             */
+
+            hideTopPerforming();
+
+
             searchInput.value =
                 savedState.query;
 

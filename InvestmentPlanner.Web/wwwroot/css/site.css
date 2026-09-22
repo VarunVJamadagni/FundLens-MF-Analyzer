@@ -1396,3 +1396,177 @@ h3 {
         padding: 0 7px;
     }
 }
+
+/* =========================================================
+   TOP PERFORMING FUNDS
+   ========================================================= */
+
+.fl-top-performing {
+    width: 100%;
+    margin-bottom: 36px;
+}
+
+.fl-top-performing-header {
+    margin-bottom: 28px;
+}
+
+.fl-top-performing-header .fl-section-label {
+    display: inline-block;
+    margin-bottom: 7px;
+}
+
+.fl-top-performing-header h2 {
+    font-size: 1.45rem;
+    margin: 0 0 8px;
+}
+
+.fl-top-performing-header p {
+    margin: 0;
+    color: var(--fl-ink-soft);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.fl-top-performing-period {
+    margin-bottom: 30px;
+}
+
+.fl-top-performing-period:last-child {
+    margin-bottom: 0;
+}
+
+.fl-top-performing-period-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.fl-top-performing-period-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.fl-top-performing-period-label {
+    color: var(--fl-muted);
+    font-size: 0.78rem;
+}
+
+.fl-top-performing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.fl-top-fund-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 180px;
+    padding: 17px;
+
+    background: var(--fl-cream-panel);
+    border: 1px solid var(--fl-border);
+    border-radius: var(--fl-radius);
+
+    box-shadow: var(--fl-shadow);
+
+    text-decoration: none;
+    color: inherit;
+
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease,
+        border-color 0.12s ease;
+}
+
+.fl-top-fund-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--fl-border-strong);
+    box-shadow:
+        0 2px 4px rgba(20, 18, 10, 0.05),
+        0 10px 24px rgba(20, 18, 10, 0.07);
+}
+
+.fl-top-fund-category {
+    display: inline-block;
+    align-self: flex-start;
+
+    margin-bottom: 11px;
+    padding: 4px 9px;
+
+    border: 1px solid var(--fl-border);
+    border-radius: 999px;
+
+    background: var(--fl-cream);
+    color: var(--fl-ink-soft);
+
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+
+.fl-top-fund-name {
+    margin: 0 0 5px;
+    font-size: 0.96rem;
+    line-height: 1.35;
+}
+
+.fl-top-fund-subcategory {
+    margin: 0;
+
+    color: var(--fl-muted);
+    font-size: 0.76rem;
+    line-height: 1.4;
+}
+
+.fl-top-fund-details {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+
+    margin-top: auto;
+    padding-top: 14px;
+
+    border-top: 1px solid var(--fl-border);
+}
+
+.fl-top-fund-house {
+    min-width: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: var(--fl-muted);
+    font-size: 0.72rem;
+}
+
+.fl-top-fund-cagr {
+    flex-shrink: 0;
+
+    color: var(--fl-green);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.fl-top-performing-loading,
+.fl-top-performing-empty {
+    text-align: center;
+    padding: 18px;
+
+    color: var(--fl-muted);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+    .fl-top-performing-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .fl-top-performing-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -7,13 +7,19 @@
 @Html.AntiForgeryToken()
 
 <section class="fl-hero">
+
     <div class="fl-hero-inner">
-        <h1>Find and analyze mutual funds</h1>
+
+        <h1>
+            Find and analyze mutual funds
+        </h1>
+
         <p class="fl-hero-sub">
             Live NAV, returns and CAGR sourced directly from MFAPI.
         </p>
 
         <div class="fl-search-wrap">
+
             <input
                 id="fl-search-input"
                 class="fl-search-input"
@@ -29,6 +35,7 @@
                 hidden>
                 &times;
             </button>
+
         </div>
 
         <p
@@ -36,18 +43,41 @@
             class="fl-search-status"
             aria-live="polite">
         </p>
+
     </div>
+
 </section>
+
+
+<!-- =========================================================
+     MAIN CONTENT
+     ========================================================= -->
 
 <div class="fl-content">
 
-    <aside class="fl-filters" id="fl-filters">
 
-        <h2 class="fl-filters-title">Filters</h2>
+    <!-- =====================================================
+         FILTERS
+         ===================================================== -->
 
-        <!-- PLAN -->
+    <aside
+        class="fl-filters"
+        id="fl-filters">
+
+        <h2 class="fl-filters-title">
+            Filters
+        </h2>
+
+
+        <!-- =================================================
+             PLAN
+             ================================================= -->
+
         <div class="fl-filter-group">
-            <h3>Plan</h3>
+
+            <h3>
+                Plan
+            </h3>
 
             <div
                 class="fl-checkbox-list"
@@ -58,11 +88,19 @@
                 </p>
 
             </div>
+
         </div>
 
-        <!-- OPTION -->
+
+        <!-- =================================================
+             OPTION
+             ================================================= -->
+
         <div class="fl-filter-group">
-            <h3>Option</h3>
+
+            <h3>
+                Option
+            </h3>
 
             <div
                 class="fl-checkbox-list"
@@ -73,11 +111,19 @@
                 </p>
 
             </div>
+
         </div>
 
-        <!-- AMC -->
+
+        <!-- =================================================
+             AMC
+             ================================================= -->
+
         <div class="fl-filter-group">
-            <h3>AMC</h3>
+
+            <h3>
+                AMC
+            </h3>
 
             <input
                 type="text"
@@ -95,11 +141,19 @@
                 </p>
 
             </div>
+
         </div>
 
-        <!-- CATEGORY -->
+
+        <!-- =================================================
+             CATEGORY
+             ================================================= -->
+
         <div class="fl-filter-group">
-            <h3>Category</h3>
+
+            <h3>
+                Category
+            </h3>
 
             <input
                 type="text"
@@ -117,11 +171,19 @@
                 </p>
 
             </div>
+
         </div>
 
-        <!-- SUB-CATEGORY -->
+
+        <!-- =================================================
+             SUB-CATEGORY
+             ================================================= -->
+
         <div class="fl-filter-group">
-            <h3>Sub-Category</h3>
+
+            <h3>
+                Sub-Category
+            </h3>
 
             <input
                 type="text"
@@ -139,30 +201,198 @@
                 </p>
 
             </div>
+
         </div>
 
-        <!-- FILTER ACTIONS -->
+
+        <!-- =================================================
+             FILTER ACTIONS
+             ================================================= -->
+
         <div class="fl-filter-actions">
 
             <button
                 id="fl-filters-apply"
                 class="fl-filters-apply"
                 type="button">
+
                 Apply Filters
+
             </button>
 
             <button
                 id="fl-filters-clear"
                 class="fl-filters-clear"
                 type="button">
+
                 Clear Filters
+
             </button>
 
         </div>
 
     </aside>
 
+
+    <!-- =====================================================
+         RESULTS AREA
+         ===================================================== -->
+
     <section class="fl-results">
+
+
+        <!-- =================================================
+             TOP PERFORMING FUNDS
+
+             Hidden by default.
+
+             JavaScript should show this only when:
+             - search box is empty
+             - no filters are applied
+
+             It should hide when:
+             - user searches
+             - user applies filters
+         ================================================= -->
+
+        <section
+            id="fl-top-performing"
+            class="fl-top-performing"
+            hidden>
+
+
+            <!-- =============================================
+                 HEADER
+                 ============================================= -->
+
+            <div class="fl-top-performing-header">
+
+                <span class="fl-section-label">
+                    FUNDLENS HIGHLIGHTS
+                </span>
+
+                <h2>
+                    Top Performing Funds
+                </h2>
+
+                <p>
+                    One top-performing Direct Growth fund from
+                    each available category, based on historical CAGR.
+                </p>
+
+            </div>
+
+
+            <!-- =============================================
+                 LOADING
+                 ============================================= -->
+
+            <div
+                id="fl-top-performing-loading"
+                class="fl-top-performing-loading">
+
+                Loading top-performing funds&hellip;
+
+            </div>
+
+
+            <!-- =============================================
+                 ERROR / EMPTY STATE
+                 ============================================= -->
+
+            <p
+                id="fl-top-performing-empty"
+                class="fl-top-performing-empty"
+                hidden>
+
+                Unable to load top-performing funds right now.
+
+            </p>
+
+
+            <!-- =============================================
+                 3 YEAR
+                 ============================================= -->
+
+            <section class="fl-top-performing-period">
+
+                <div class="fl-top-performing-period-header">
+
+                    <h3>
+                        3 Year
+                    </h3>
+
+                    <span class="fl-top-performing-period-label">
+                        3Y CAGR
+                    </span>
+
+                </div>
+
+                <div
+                    id="fl-top-three-grid"
+                    class="fl-top-performing-grid">
+                </div>
+
+            </section>
+
+
+            <!-- =============================================
+                 5 YEAR
+                 ============================================= -->
+
+            <section class="fl-top-performing-period">
+
+                <div class="fl-top-performing-period-header">
+
+                    <h3>
+                        5 Year
+                    </h3>
+
+                    <span class="fl-top-performing-period-label">
+                        5Y CAGR
+                    </span>
+
+                </div>
+
+                <div
+                    id="fl-top-five-grid"
+                    class="fl-top-performing-grid">
+                </div>
+
+            </section>
+
+
+            <!-- =============================================
+                 10 YEAR
+                 ============================================= -->
+
+            <section class="fl-top-performing-period">
+
+                <div class="fl-top-performing-period-header">
+
+                    <h3>
+                        10 Year
+                    </h3>
+
+                    <span class="fl-top-performing-period-label">
+                        10Y CAGR
+                    </span>
+
+                </div>
+
+                <div
+                    id="fl-top-ten-grid"
+                    class="fl-top-performing-grid">
+                </div>
+
+            </section>
+
+        </section>
+
+
+        <!-- =================================================
+             SEARCH RESULTS HEADER
+             ================================================= -->
 
         <div class="fl-results-header">
 
@@ -177,10 +407,20 @@
 
         </div>
 
+
+        <!-- =================================================
+             SEARCH RESULTS GRID
+             ================================================= -->
+
         <div
             id="fl-results-grid"
             class="fl-fund-grid">
         </div>
+
+
+        <!-- =================================================
+             EMPTY SEARCH RESULTS
+             ================================================= -->
 
         <div
             id="fl-results-empty"
@@ -192,6 +432,11 @@
             </p>
 
         </div>
+
+
+        <!-- =================================================
+             SEARCH RESULTS LOADING
+             ================================================= -->
 
         <div
             id="fl-results-loading"
@@ -205,7 +450,9 @@
         </div>
 
     </section>
+
 </div>
+
 
 <!-- =========================================================
      FUND CARD TEMPLATE
@@ -217,15 +464,26 @@
         class="fl-fund-card"
         href="#">
 
+
+        <!-- =================================================
+             FUND CARD HEADER
+             ================================================= -->
+
         <div class="fl-fund-card-header">
 
-            <h3 class="fl-fund-name"></h3>
+            <h3 class="fl-fund-name">
+            </h3>
 
             <span
                 class="fl-fund-tag fl-fund-plan">
             </span>
 
         </div>
+
+
+        <!-- =================================================
+             NAV
+             ================================================= -->
 
         <div class="fl-fund-nav">
 
@@ -238,48 +496,129 @@
 
         </div>
 
+
+        <!-- =================================================
+             PERFORMANCE METRICS
+             ================================================= -->
+
         <div class="fl-fund-metrics">
 
-            <div class="fl-metric">
-                <span class="fl-metric-label">1M</span>
-                <span class="fl-metric-value fl-m1"></span>
-            </div>
+
+            <!-- 1 MONTH -->
 
             <div class="fl-metric">
-                <span class="fl-metric-label">3M</span>
-                <span class="fl-metric-value fl-m3"></span>
+
+                <span class="fl-metric-label">
+                    1M
+                </span>
+
+                <span
+                    class="fl-metric-value fl-m1">
+                </span>
+
             </div>
 
-            <div class="fl-metric">
-                <span class="fl-metric-label">6M</span>
-                <span class="fl-metric-value fl-m6"></span>
-            </div>
+
+            <!-- 3 MONTH -->
 
             <div class="fl-metric">
-                <span class="fl-metric-label">1Y</span>
-                <span class="fl-metric-value fl-y1"></span>
+
+                <span class="fl-metric-label">
+                    3M
+                </span>
+
+                <span
+                    class="fl-metric-value fl-m3">
+                </span>
+
             </div>
 
-            <div class="fl-metric">
-                <span class="fl-metric-label">3Y</span>
-                <span class="fl-metric-value fl-y3"></span>
-            </div>
+
+            <!-- 6 MONTH -->
 
             <div class="fl-metric">
-                <span class="fl-metric-label">5Y</span>
-                <span class="fl-metric-value fl-y5"></span>
+
+                <span class="fl-metric-label">
+                    6M
+                </span>
+
+                <span
+                    class="fl-metric-value fl-m6">
+                </span>
+
             </div>
 
+
+            <!-- 1 YEAR -->
+
             <div class="fl-metric">
-                <span class="fl-metric-label">10Y</span>
-                <span class="fl-metric-value fl-y10"></span>
+
+                <span class="fl-metric-label">
+                    1Y
+                </span>
+
+                <span
+                    class="fl-metric-value fl-y1">
+                </span>
+
+            </div>
+
+
+            <!-- 3 YEAR -->
+
+            <div class="fl-metric">
+
+                <span class="fl-metric-label">
+                    3Y
+                </span>
+
+                <span
+                    class="fl-metric-value fl-y3">
+                </span>
+
+            </div>
+
+
+            <!-- 5 YEAR -->
+
+            <div class="fl-metric">
+
+                <span class="fl-metric-label">
+                    5Y
+                </span>
+
+                <span
+                    class="fl-metric-value fl-y5">
+                </span>
+
+            </div>
+
+
+            <!-- 10 YEAR -->
+
+            <div class="fl-metric">
+
+                <span class="fl-metric-label">
+                    10Y
+                </span>
+
+                <span
+                    class="fl-metric-value fl-y10">
+                </span>
+
             </div>
 
         </div>
 
+
+        <!-- =================================================
+             FUND HOUSE
+             ================================================= -->
+
         <div class="fl-fund-footer">
 
-            <span class="fl-fund-amc"></span>
+            <span class="fl-fund-amc">
+            </span>
 
         </div>
 

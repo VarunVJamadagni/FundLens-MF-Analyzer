@@ -2,26 +2,42 @@ using InvestmentPlanner.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- Core services ----
+// =============================================================
+// CORE SERVICES
+// =============================================================
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 builder.Services.AddSingleton<AmfiFundDataService>();
 
-// The Web (Razor Pages) app calls this API server-side, but CORS is enabled
-// as well in case the API is ever called directly from a browser.
+// =============================================================
+// CORS
+// =============================================================
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWebApp", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 });
 
-// MFAPI base address - used by both NAVService and SchemeService.
-var mfApiBaseUrl = builder.Configuration["MfApi:BaseUrl"] ?? "https://api.mfapi.in/";
+// =============================================================
+// MFAPI CONFIGURATION
+// =============================================================
+
+var mfApiBaseUrl =
+    builder.Configuration["MfApi:BaseUrl"]
+    ?? "https://api.mfapi.in/";
+
+// =============================================================
+// NAV SERVICE
+// =============================================================
 
 builder.Services.AddHttpClient<NAVService>(client =>
 {
@@ -29,26 +45,45 @@ builder.Services.AddHttpClient<NAVService>(client =>
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
+// =============================================================
+// SCHEME SERVICE
+// =============================================================
+
 builder.Services.AddHttpClient<SchemeService>(client =>
 {
     client.BaseAddress = new Uri(mfApiBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(15);
 });
 
-// AnalyticsService and MFTrackerService don't call MFAPI directly - they
-// depend on NAVService, so no HttpClient registration is needed here.
+// =============================================================
+// APPLICATION SERVICES
+// =============================================================
+
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<MFTrackerService>();
 
+// =============================================================
+// BUILD APPLICATION
+// =============================================================
+
 var app = builder.Build();
+
+// =============================================================
+// GENERATE / UPDATE FUNDS.JSON
+// =============================================================
 
 using (var scope = app.Services.CreateScope())
 {
-    var amfiFundDataService = scope.ServiceProvider
-        .GetRequiredService<AmfiFundDataService>();
+    var amfiFundDataService =
+        scope.ServiceProvider
+            .GetRequiredService<AmfiFundDataService>();
 
     await amfiFundDataService.GenerateFundsJsonAsync();
 }
+
+// =============================================================
+// DEVELOPMENT TOOLS
+// =============================================================
 
 if (app.Environment.IsDevelopment())
 {
@@ -56,9 +91,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// =============================================================
+// HTTP PIPELINE
+// =============================================================
+
 app.UseCors("AllowWebApp");
+
 app.UseHttpsRedirection();
+
 app.UseAuthorization();
+
 app.MapControllers();
+
+// =============================================================
+// START API
+// =============================================================
 
 app.Run();
