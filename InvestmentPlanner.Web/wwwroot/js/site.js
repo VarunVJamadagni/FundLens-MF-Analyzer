@@ -109,10 +109,10 @@
     var activeRequestToken = 0;
 
     var listStateKey =
-        "fundLensListState";
+        "finLensListState";
 
     var returnToFundsKey =
-        "fundLensReturnToFunds";
+        "finLensReturnToFunds";
 
 
     /* =========================================================
