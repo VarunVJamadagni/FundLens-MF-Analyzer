@@ -10,12 +10,19 @@ namespace InvestmentPlanner.Web.Pages
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<IndexModel> _logger;
 
+        public string ApiBaseUrl { get; }
+
         public IndexModel(
             IHttpClientFactory httpClientFactory,
-            ILogger<IndexModel> logger)
+        ILogger<IndexModel> logger,
+        IConfiguration configuration)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+
+            ApiBaseUrl =
+                configuration["InvestmentPlannerApi:BaseUrl"]
+                ?? "https://localhost:7001/";
         }
 
         public void OnGet()

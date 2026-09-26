@@ -4,6 +4,10 @@
     ViewData["Title"] = "Funds";
 }
 
+<script>
+    window.finLensApiBaseUrl = "@Model.ApiBaseUrl";
+</script>
+
 @Html.AntiForgeryToken()
 
 <section class="fl-hero">

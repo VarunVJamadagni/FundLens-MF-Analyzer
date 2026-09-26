@@ -2386,8 +2386,8 @@
 
             var data =
                 await fetchJson(
-                    "http://localhost:5001/api/Scheme/top-performing"
-                );
+                    `${window.finLensApiBaseUrl}api/Scheme/top-performing`
+        );
 
 
             console.log(
