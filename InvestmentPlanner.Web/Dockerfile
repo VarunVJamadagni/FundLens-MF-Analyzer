@@ -32,7 +32,7 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 # Render will provide the PORT environment variable
-ENV ASPNETCORE_URLS=http://+:${PORT}
+ENV ASPNETCORE_URLS=http://+:10000
 
 # Start Web application
 ENTRYPOINT ["dotnet", "InvestmentPlanner.Web.dll"]

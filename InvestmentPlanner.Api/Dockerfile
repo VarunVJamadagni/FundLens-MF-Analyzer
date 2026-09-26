@@ -41,7 +41,7 @@ COPY --from=build /src/Data ./Data
 ENV DataDirectory=/app/Data
 
 # Render will provide the PORT environment variable
-ENV ASPNETCORE_URLS=http://+:${PORT}
+ENV ASPNETCORE_URLS=http://+:10000
 
 # Start API
 ENTRYPOINT ["dotnet", "InvestmentPlanner.Api.dll"]
