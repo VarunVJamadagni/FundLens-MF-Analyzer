@@ -9,7 +9,11 @@ public class AmfiFundDataService
     private readonly string _navFilePath;
     private readonly string _jsonFilePath;
 
-    public AmfiFundDataService()
+    public AmfiFundDataService(IConfiguration configuration)
+{
+    var dataDirectory = configuration["DataDirectory"];
+
+    if (string.IsNullOrWhiteSpace(dataDirectory))
     {
         var projectRoot = Directory.GetParent(AppContext.BaseDirectory)!
             .Parent!
@@ -18,9 +22,12 @@ public class AmfiFundDataService
             .Parent!
             .FullName;
 
-        _navFilePath = Path.Combine(projectRoot, "Data", "NAVAll.txt");
-        _jsonFilePath = Path.Combine(projectRoot, "Data", "funds.json");
+        dataDirectory = Path.Combine(projectRoot, "Data");
     }
+
+    _navFilePath = Path.Combine(dataDirectory, "NAVAll.txt");
+    _jsonFilePath = Path.Combine(dataDirectory, "funds.json");
+}
 
     public async Task GenerateFundsJsonAsync()
     {
