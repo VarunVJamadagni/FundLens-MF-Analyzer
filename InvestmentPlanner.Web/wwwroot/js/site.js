@@ -1047,10 +1047,17 @@
 
 
                 node.querySelector(
-                    ".fl-fund-plan"
-                ).textContent =
-                    fund.plan ||
-                    "Standard";
+    ".fl-fund-plan"
+).textContent =
+    (
+        fund.plan ||
+        "Standard"
+    ) +
+    " • " +
+    (
+        fund.option ||
+        "Other"
+    );
 
 
                 node.querySelector(

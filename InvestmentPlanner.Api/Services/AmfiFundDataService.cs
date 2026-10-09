@@ -10,24 +10,24 @@ public class AmfiFundDataService
     private readonly string _jsonFilePath;
 
     public AmfiFundDataService(IConfiguration configuration)
-{
-    var dataDirectory = configuration["DataDirectory"];
-
-    if (string.IsNullOrWhiteSpace(dataDirectory))
     {
-        var projectRoot = Directory.GetParent(AppContext.BaseDirectory)!
-            .Parent!
-            .Parent!
-            .Parent!
-            .Parent!
-            .FullName;
+        var dataDirectory = configuration["DataDirectory"];
 
-        dataDirectory = Path.Combine(projectRoot, "Data");
+        if (string.IsNullOrWhiteSpace(dataDirectory))
+        {
+            var projectRoot = Directory.GetParent(AppContext.BaseDirectory)!
+                .Parent!
+                .Parent!
+                .Parent!
+                .Parent!
+                .FullName;
+
+            dataDirectory = Path.Combine(projectRoot, "Data");
+        }
+
+        _navFilePath = Path.Combine(dataDirectory, "NAVAll.txt");
+        _jsonFilePath = Path.Combine(dataDirectory, "funds.json");
     }
-
-    _navFilePath = Path.Combine(dataDirectory, "NAVAll.txt");
-    _jsonFilePath = Path.Combine(dataDirectory, "funds.json");
-}
 
     public async Task GenerateFundsJsonAsync()
     {
@@ -315,7 +315,8 @@ public class AmfiFundDataService
 
         if (separatorIndex >= 0)
         {
-            category = categoryText[..separatorIndex].Trim();
+            category = NormalizeCategory(
+                categoryText[..separatorIndex].Trim());
 
             subCategory = categoryText[
                 (separatorIndex + 3)..
@@ -324,9 +325,38 @@ public class AmfiFundDataService
             return !string.IsNullOrWhiteSpace(category);
         }
 
-        category = categoryText;
+        category = NormalizeCategory(categoryText);
 
         return true;
+    }
+
+    // -------------------------------------------------------------
+    // CATEGORY NORMALIZATION
+    // -------------------------------------------------------------
+
+    private static string NormalizeCategory(string category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+            return string.Empty;
+
+        var normalized = category.Trim();
+
+        // Remove AMFI formatting markers such as:
+        // "Solution Oriented Schemes **"
+        normalized = normalized.TrimEnd('*').Trim();
+
+        // Normalize singular category names to plural.
+        // Example:
+        // "Equity Scheme"  -> "Equity Schemes"
+        // "Hybrid Scheme"  -> "Hybrid Schemes"
+        if (normalized.EndsWith(
+                " Scheme",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            normalized += "s";
+        }
+
+        return normalized;
     }
 
     // -------------------------------------------------------------

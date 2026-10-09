@@ -14,8 +14,8 @@ namespace InvestmentPlanner.Web.Pages
 
         public IndexModel(
             IHttpClientFactory httpClientFactory,
-        ILogger<IndexModel> logger,
-        IConfiguration configuration)
+            ILogger<IndexModel> logger,
+            IConfiguration configuration)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
@@ -44,10 +44,12 @@ namespace InvestmentPlanner.Web.Pages
             try
             {
                 var client =
-                    _httpClientFactory.CreateClient("InvestmentPlannerApi");
+                    _httpClientFactory.CreateClient(
+                        "InvestmentPlannerApi");
 
                 var response =
-                    await client.GetAsync("api/Scheme/filter-options");
+                    await client.GetAsync(
+                        "api/Scheme/filter-options");
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -55,7 +57,8 @@ namespace InvestmentPlanner.Web.Pages
                         "Api returned {StatusCode} while fetching filter options",
                         response.StatusCode);
 
-                    return new JsonResult(new FilterOptions());
+                    return new JsonResult(
+                        new FilterOptions());
                 }
 
                 var options =
@@ -71,7 +74,8 @@ namespace InvestmentPlanner.Web.Pages
                     ex,
                     "Error fetching filter options from Api");
 
-                return new JsonResult(new FilterOptions());
+                return new JsonResult(
+                    new FilterOptions());
             }
         }
 
@@ -89,7 +93,8 @@ namespace InvestmentPlanner.Web.Pages
                 request ??= new FundFilterRequest();
 
                 var client =
-                    _httpClientFactory.CreateClient("InvestmentPlannerApi");
+                    _httpClientFactory.CreateClient(
+                        "InvestmentPlannerApi");
 
                 var response =
                     await client.PostAsJsonAsync(
@@ -102,11 +107,17 @@ namespace InvestmentPlanner.Web.Pages
                         "Api returned {StatusCode} while filtering funds",
                         response.StatusCode);
 
-                    return new JsonResult(new List<object>());
+                    return new JsonResult(
+                        new List<AnalyticsApiResponse>());
                 }
 
-                var funds = await response.Content.ReadFromJsonAsync<List<AnalyticsApiResponse>>();
-return new JsonResult(funds ?? new List<AnalyticsApiResponse>());
+                var funds =
+                    await response.Content
+                        .ReadFromJsonAsync<
+                            List<AnalyticsApiResponse>>();
+
+                return new JsonResult(
+                    funds ?? new List<AnalyticsApiResponse>());
             }
             catch (Exception ex)
             {
@@ -114,7 +125,8 @@ return new JsonResult(funds ?? new List<AnalyticsApiResponse>());
                     ex,
                     "Error filtering funds via Api");
 
-                return new JsonResult(new List<object>());
+                return new JsonResult(
+                    new List<AnalyticsApiResponse>());
             }
         }
 
@@ -129,13 +141,15 @@ return new JsonResult(funds ?? new List<AnalyticsApiResponse>());
         {
             if (string.IsNullOrWhiteSpace(query))
             {
-                return new JsonResult(new List<object>());
+                return new JsonResult(
+                    new List<AnalyticsApiResponse>());
             }
 
             try
             {
                 var client =
-                    _httpClientFactory.CreateClient("InvestmentPlannerApi");
+                    _httpClientFactory.CreateClient(
+                        "InvestmentPlannerApi");
 
                 var response =
                     await client.GetAsync(
@@ -148,12 +162,14 @@ return new JsonResult(funds ?? new List<AnalyticsApiResponse>());
                         response.StatusCode,
                         query);
 
-                    return new JsonResult(new List<object>());
+                    return new JsonResult(
+                        new List<AnalyticsApiResponse>());
                 }
 
                 var funds =
                     await response.Content
-                        .ReadFromJsonAsync<List<AnalyticsApiResponse>>();
+                        .ReadFromJsonAsync<
+                            List<AnalyticsApiResponse>>();
 
                 return new JsonResult(
                     funds ?? new List<AnalyticsApiResponse>());
@@ -165,7 +181,8 @@ return new JsonResult(funds ?? new List<AnalyticsApiResponse>());
                     "Error searching funds via Api for query '{Query}'",
                     query);
 
-                return new JsonResult(new List<object>());
+                return new JsonResult(
+                    new List<AnalyticsApiResponse>());
             }
         }
     }

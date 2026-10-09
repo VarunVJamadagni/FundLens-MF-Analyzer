@@ -1,5 +1,6 @@
 @page
 @model InvestmentPlanner.Web.Pages.IndexModel
+
 @{
     ViewData["Title"] = "Funds";
 }
@@ -19,7 +20,7 @@
         </h1>
 
         <p class="fl-hero-sub">
-            Live NAV, returns and CAGR sourced directly from MFAPI.
+            Live NAV, returns and CAGR powered by mutual fund market data.
         </p>
 
         <div class="fl-search-wrap">
@@ -28,7 +29,7 @@
                 id="fl-search-input"
                 class="fl-search-input"
                 type="text"
-                placeholder="Search by fund name, AMC, or category&hellip; e.g. HDFC, SBI, Flexi Cap"
+                placeholder="Search by fund name, AMC, or category… e.g. HDFC, SBI, Flexi Cap"
                 autocomplete="off" />
 
             <button
@@ -88,7 +89,7 @@
                 id="fl-filter-plan">
 
                 <p class="fl-filter-empty">
-                    Loading plans&hellip;
+                    Loading plans…
                 </p>
 
             </div>
@@ -111,7 +112,7 @@
                 id="fl-filter-option">
 
                 <p class="fl-filter-empty">
-                    Loading options&hellip;
+                    Loading options…
                 </p>
 
             </div>
@@ -132,7 +133,7 @@
             <input
                 type="text"
                 class="fl-filter-search"
-                placeholder="Search AMCs&hellip;"
+                placeholder="Search AMCs…"
                 data-target="fl-filter-amc"
                 autocomplete="off" />
 
@@ -141,7 +142,7 @@
                 id="fl-filter-amc">
 
                 <p class="fl-filter-empty">
-                    Loading AMCs&hellip;
+                    Loading AMCs…
                 </p>
 
             </div>
@@ -162,7 +163,7 @@
             <input
                 type="text"
                 class="fl-filter-search"
-                placeholder="Search categories&hellip;"
+                placeholder="Search categories…"
                 data-target="fl-filter-category"
                 autocomplete="off" />
 
@@ -171,7 +172,7 @@
                 id="fl-filter-category">
 
                 <p class="fl-filter-empty">
-                    Loading categories&hellip;
+                    Loading categories…
                 </p>
 
             </div>
@@ -192,7 +193,7 @@
             <input
                 type="text"
                 class="fl-filter-search"
-                placeholder="Search sub-categories&hellip;"
+                placeholder="Search sub-categories…"
                 data-target="fl-filter-subcategory"
                 autocomplete="off" />
 
@@ -201,7 +202,7 @@
                 id="fl-filter-subcategory">
 
                 <p class="fl-filter-empty">
-                    Loading sub-categories&hellip;
+                    Loading sub-categories…
                 </p>
 
             </div>
@@ -257,7 +258,7 @@
              It should hide when:
              - user searches
              - user applies filters
-         ================================================= -->
+             ================================================= -->
 
         <section
             id="fl-top-performing"
@@ -295,7 +296,7 @@
                 id="fl-top-performing-loading"
                 class="fl-top-performing-loading">
 
-                Loading top-performing funds&hellip;
+                Loading top-performing funds…
 
             </div>
 
@@ -448,7 +449,7 @@
             hidden>
 
             <p>
-                Loading funds&hellip;
+                Loading funds…
             </p>
 
         </div>

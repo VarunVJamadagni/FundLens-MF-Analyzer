@@ -1,131 +1,172 @@
+using InvestmentPlanner.Api.Data;
 using InvestmentPlanner.Api.Models;
+using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace InvestmentPlanner.Api.Services
 {
     /// <summary>
-    /// The ONLY implementation responsible for:
-    ///   - finding historical NAV (on or before a target date)
-    ///   - calculating monthly returns
-    ///   - calculating CAGR
-    ///   - handling missing historical periods (returns "N/A", never throws)
+    /// Provides stored mutual-fund analytics from the FundAnalytics database table.
+    ///
+    /// The expensive NAV fetching and analytics calculation is performed by
+    /// FundAnalyticsUpdateService during the controlled population process.
+    ///
+    /// This service only reads the already-calculated analytics for normal
+    /// fund-detail requests.
+    ///
+    /// A new DbContext is created for each database operation so that
+    /// concurrent analytics requests do not share the same EF Core DbContext.
     /// </summary>
     public class AnalyticsService
     {
-        private readonly NAVService _navService;
+        private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
         private readonly ILogger<AnalyticsService> _logger;
 
-        public AnalyticsService(NAVService navService, ILogger<AnalyticsService> logger)
+        public AnalyticsService(
+            IDbContextFactory<AppDbContext> dbContextFactory,
+            ILogger<AnalyticsService> logger)
         {
-            _navService = navService;
+            _dbContextFactory = dbContextFactory;
             _logger = logger;
         }
 
         /// <summary>
-        /// Builds the full analytics response for a scheme code. Returns null
-        /// only when the fund itself cannot be found or has no usable NAV
-        /// data at all - individual missing periods are represented as "N/A"
-        /// inside the response rather than failing the whole call.
+        /// Returns stored analytics for a single scheme.
+        ///
+        /// This method does NOT call MFAPI and does NOT recalculate returns/CAGR.
+        /// It reads the analytics that were previously populated into PostgreSQL.
+        ///
+        /// A separate DbContext is created for this operation so multiple
+        /// analytics requests can safely execute concurrently.
+        ///
+        /// Returns null when the scheme does not exist in FundAnalytics.
         /// </summary>
-        public async Task<AnalyticsApiResponse?> BuildAnalyticsAsync(int schemeCode, string? schemeNameHint = null)
+        public async Task<AnalyticsApiResponse?> BuildAnalyticsAsync(
+            int schemeCode,
+            string? schemeNameHint = null)
         {
-            MutualFundResponse? fund;
+            if (schemeCode <= 0)
+            {
+                return null;
+            }
 
             try
             {
-                fund = await _navService.GetFundDataAsync(schemeCode);
+                await using var dbContext =
+                    await _dbContextFactory.CreateDbContextAsync();
+
+                var fund = await dbContext.FundAnalytics
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        x => x.SchemeCode == schemeCode);
+
+                if (fund == null)
+                {
+                    _logger.LogWarning(
+                        "No stored analytics found for scheme {SchemeCode}",
+                        schemeCode);
+
+                    return null;
+                }
+
+                return MapToAnalyticsResponse(
+                    fund,
+                    schemeNameHint);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error building analytics for scheme {SchemeCode}", schemeCode);
+                _logger.LogError(
+                    ex,
+                    "Error loading stored analytics for scheme {SchemeCode}",
+                    schemeCode);
+
                 return null;
             }
+        }
 
-            if (fund == null || fund.NavHistory.Count == 0)
-            {
-                return null;
-            }
-
-            // NavHistory is sorted descending by NAVService, so the first entry is "current".
-            var latest = fund.NavHistory[0];
-            var currentNav = latest.Nav;
-            var currentDate = latest.Date;
-
-            decimal? historicalNavOnOrBefore(DateTime target)
-            {
-                // "most appropriate NAV on or before the target date" - no exact match required.
-                NavDataPoint? match = null;
-                foreach (var point in fund.NavHistory)
-                {
-                    if (point.Date <= target && (match == null || point.Date > match.Date))
-                    {
-                        match = point;
-                    }
-                }
-                return match?.Nav;
-            }
-
-            string? calculateReturnPercent(int months)
-            {
-                var targetDate = currentDate.AddMonths(-months);
-                var historicalNav = historicalNavOnOrBefore(targetDate);
-
-                if (historicalNav is null or <= 0)
-                {
-                    return null;
-                }
-
-                var pct = ((currentNav / historicalNav.Value) - 1m) * 100m;
-                return FormatPercent(pct);
-            }
-
-            string? calculateCagrPercent(int years)
-            {
-                var targetDate = currentDate.AddYears(-years);
-                var historicalNav = historicalNavOnOrBefore(targetDate);
-
-                if (historicalNav is null or <= 0)
-                {
-                    return null;
-                }
-
-                // ((Current NAV / Historical NAV) ^ (1 / Years)) - 1
-                var ratio = (double)(currentNav / historicalNav.Value);
-                var cagr = (Math.Pow(ratio, 1.0 / years) - 1.0) * 100.0;
-                return FormatPercent((decimal)cagr);
-            }
-
-            var (category, subCategory) = SplitCategory(fund.SchemeCategory);
-
+        /// <summary>
+        /// Maps a stored FundAnalytics entity to the API response used
+        /// by the Web application.
+        /// </summary>
+        private static AnalyticsApiResponse MapToAnalyticsResponse(
+            FundAnalytics fund,
+            string? schemeNameHint = null)
+        {
             return new AnalyticsApiResponse
             {
                 SchemeCode = fund.SchemeCode,
+
                 SchemeName = string.IsNullOrWhiteSpace(fund.SchemeName)
-                    ? (schemeNameHint ?? $"Scheme {schemeCode}")
+                    ? (schemeNameHint ?? $"Scheme {fund.SchemeCode}")
                     : fund.SchemeName,
-                CurrentNAV = currentNav,
 
-                Return1Month = calculateReturnPercent(1) ?? "N/A",
-                Return3Month = calculateReturnPercent(3) ?? "N/A",
-                Return6Month = calculateReturnPercent(6) ?? "N/A",
+                CurrentNAV = fund.CurrentNAV,
 
-                CAGR1Year = calculateCagrPercent(1) ?? "N/A",
-                CAGR3Year = calculateCagrPercent(3) ?? "N/A",
-                CAGR5Year = calculateCagrPercent(5) ?? "N/A",
-                CAGR10Year = calculateCagrPercent(10) ?? "N/A",
+                Return1Month = FormatNullablePercent(
+                    fund.Return1Month),
+
+                Return3Month = FormatNullablePercent(
+                    fund.Return3Month),
+
+                Return6Month = FormatNullablePercent(
+                    fund.Return6Month),
+
+                CAGR1Year = FormatNullablePercent(
+                    fund.CAGR1Year),
+
+                CAGR3Year = FormatNullablePercent(
+                    fund.CAGR3Year),
+
+                CAGR5Year = FormatNullablePercent(
+                    fund.CAGR5Year),
+
+                CAGR10Year = FormatNullablePercent(
+                    fund.CAGR10Year),
 
                 FundHouse = fund.FundHouse,
-                SchemeCategory = category,
-                SchemeSubCategory = subCategory,
-                Plan = InferPlan(fund.SchemeName),
-                Option = InferOption(fund.SchemeName)
+
+                SchemeCategory = fund.Category,
+
+                SchemeSubCategory = fund.SubCategory,
+
+                Plan = string.IsNullOrWhiteSpace(fund.Plan)
+                    ? "Standard"
+                    : fund.Plan,
+
+                Option = string.IsNullOrWhiteSpace(fund.Option)
+                    ? "Other"
+                    : fund.Option
             };
         }
 
         /// <summary>
-        /// Returns true only when every required period (1M/3M/6M/1Y/3Y/5Y/10Y)
-        /// has real data - used to decide "initial eligible fund" membership.
+        /// Converts a nullable database percentage into the string format
+        /// expected by AnalyticsApiResponse.
+        ///
+        /// Example:
+        /// 15.2345 -> "15.23%"
+        /// null    -> "N/A"
         /// </summary>
-        public static bool HasAllPeriods(AnalyticsApiResponse response)
+        private static string FormatNullablePercent(decimal? value)
+        {
+            if (value == null)
+            {
+                return "N/A";
+            }
+
+            return value.Value.ToString(
+                "0.00",
+                CultureInfo.InvariantCulture) + "%";
+        }
+
+        /// <summary>
+        /// Returns true only when every required period has real analytics data.
+        ///
+        /// Used by existing application logic to determine whether a fund
+        /// has complete analytics coverage.
+        /// </summary>
+        public static bool HasAllPeriods(
+            AnalyticsApiResponse response)
         {
             return response.CurrentNAV > 0
                 && response.Return1Month != "N/A"
@@ -135,67 +176,6 @@ namespace InvestmentPlanner.Api.Services
                 && response.CAGR3Year != "N/A"
                 && response.CAGR5Year != "N/A"
                 && response.CAGR10Year != "N/A";
-        }
-
-        private static string FormatPercent(decimal value)
-        {
-            return value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + "%";
-        }
-
-        private static (string? category, string? subCategory) SplitCategory(string? rawCategory)
-        {
-            if (string.IsNullOrWhiteSpace(rawCategory))
-            {
-                return (null, null);
-            }
-
-            // MFAPI categories commonly look like "Debt Scheme - Liquid Fund".
-            var parts = rawCategory.Split(" - ", 2, StringSplitOptions.TrimEntries);
-            return parts.Length == 2 ? (parts[0], parts[1]) : (rawCategory, null);
-        }
-
-        private static string InferPlan(string schemeName)
-        {
-            var name = schemeName.ToLowerInvariant();
-
-            if (name.Contains("defunct") || name.Contains("closed for subscription"))
-            {
-                return "Defunct";
-            }
-            if (name.Contains("direct"))
-            {
-                return "Direct";
-            }
-            if (name.Contains("regular"))
-            {
-                return "Regular";
-            }
-            if (name.Contains("institutional"))
-            {
-                return "Institutional";
-            }
-            if (name.Contains("retail"))
-            {
-                return "Retail";
-            }
-
-            return "Standard";
-        }
-
-        private static string InferOption(string schemeName)
-        {
-            var name = schemeName.ToLowerInvariant();
-
-            if (name.Contains("idcw") || name.Contains("dividend"))
-            {
-                return "IDCW";
-            }
-            if (name.Contains("growth"))
-            {
-                return "Growth";
-            }
-
-            return "Other";
         }
     }
 }

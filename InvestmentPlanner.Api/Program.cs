@@ -1,6 +1,12 @@
+using InvestmentPlanner.Api.Data;
 using InvestmentPlanner.Api.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // =============================================================
 // CORE SERVICES
@@ -46,6 +52,17 @@ builder.Services.AddHttpClient<NAVService>(client =>
 });
 
 // =============================================================
+// MFAPI DATA SERVICE
+// Used by the controlled database update process.
+// =============================================================
+
+builder.Services.AddHttpClient<MfApiService>(client =>
+{
+    client.BaseAddress = new Uri(mfApiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
+
+// =============================================================
 // SCHEME SERVICE
 // =============================================================
 
@@ -59,8 +76,10 @@ builder.Services.AddHttpClient<SchemeService>(client =>
 // APPLICATION SERVICES
 // =============================================================
 
+builder.Services.AddSingleton<AnalyticsCacheService>();
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<MFTrackerService>();
+builder.Services.AddScoped<FundAnalyticsUpdateService>();
 
 // =============================================================
 // BUILD APPLICATION
@@ -85,11 +104,9 @@ using (var scope = app.Services.CreateScope())
 // DEVELOPMENT TOOLS
 // =============================================================
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// SWAGGER
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // =============================================================
 // HTTP PIPELINE

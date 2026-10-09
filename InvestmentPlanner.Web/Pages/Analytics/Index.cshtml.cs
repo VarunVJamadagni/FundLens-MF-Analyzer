@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using InvestmentPlanner.Web.Models;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -10,9 +11,12 @@ namespace InvestmentPlanner.Web.Pages.Analytics
         private readonly ILogger<IndexModel> _logger;
 
         public AnalyticsApiResponse? Fund { get; private set; }
+
         public string? ErrorMessage { get; private set; }
 
-        public IndexModel(IHttpClientFactory httpClientFactory, ILogger<IndexModel> logger)
+        public IndexModel(
+            IHttpClientFactory httpClientFactory,
+            ILogger<IndexModel> logger)
         {
             _httpClientFactory = httpClientFactory;
             _logger = logger;
@@ -28,31 +32,64 @@ namespace InvestmentPlanner.Web.Pages.Analytics
 
             try
             {
-                var client = _httpClientFactory.CreateClient("InvestmentPlannerApi");
-                var response = await client.GetAsync($"api/Analytics/{schemeCode}");
+                var client =
+                    _httpClientFactory.CreateClient(
+                        "InvestmentPlannerApi");
+
+                using var response =
+                    await client.GetAsync(
+                        $"api/Analytics/{schemeCode}");
 
                 if (response.IsSuccessStatusCode)
                 {
-                    Fund = await response.Content.ReadFromJsonAsync<AnalyticsApiResponse>();
+                    Fund =
+                        await response.Content
+                            .ReadFromJsonAsync<AnalyticsApiResponse>();
 
                     if (Fund == null)
                     {
-                        ErrorMessage = "Fund data could not be loaded.";
+                        ErrorMessage =
+                            "Fund data could not be loaded.";
                     }
+
+                    return;
                 }
-                else if (response.StatusCode == HttpStatusCode.NotFound)
+
+                if (response.StatusCode == HttpStatusCode.NotFound)
                 {
-                    ErrorMessage = "This fund could not be found.";
+                    ErrorMessage =
+                        "This fund could not be found.";
+
+                    return;
                 }
-                else
-                {
-                    ErrorMessage = "Unable to load fund details at this time. Please try again later.";
-                }
+
+                _logger.LogWarning(
+                    "Analytics API returned status code {StatusCode} for scheme {SchemeCode}",
+                    response.StatusCode,
+                    schemeCode);
+
+                ErrorMessage =
+                    "Unable to load fund details at this time. Please try again later.";
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "HTTP error loading analytics for scheme {SchemeCode}",
+                    schemeCode);
+
+                ErrorMessage =
+                    "Unable to connect to the fund analytics service. Please try again later.";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading analytics for scheme {SchemeCode}", schemeCode);
-                ErrorMessage = "Unable to load fund details at this time. Please try again later.";
+                _logger.LogError(
+                    ex,
+                    "Error loading analytics for scheme {SchemeCode}",
+                    schemeCode);
+
+                ErrorMessage =
+                    "Unable to load fund details at this time. Please try again later.";
             }
         }
     }
